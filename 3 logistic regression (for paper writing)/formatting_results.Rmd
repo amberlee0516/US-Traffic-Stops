@@ -1,0 +1,62 @@
+---
+title: "formatting results"
+output: html_document
+---
+# men
+```{r}
+
+library(dplyr)
+library(broom)
+
+# load(file = "fitlogs_all_women_and_men.Rdata")
+
+# fitlog_all %>% 
+#   tidy() %>% 
+#   mutate(estimate = round(estimate, digits = 3),
+#          std.error = round(std.error, digits = 3),
+#          p.value = round(p.value, digits = 3),
+#          "exp(coefficient)" = round(exp(estimate), digits = 3)) %>% 
+#   kable()
+
+standardized_terms <- c("Intercept", "Hispanic", "White", "Age", "Night", "Black population proportion", "Hispanic and Age", "White and Age", "Hispanic and Night", "White and Night", "Hispanic and Black population proportion", "White and Black population proportion")
+
+formatted_men <- fitlog_men %>%
+  tidy() %>% 
+  mutate(estimate = round(estimate, digits = 5),
+         std.error = round(std.error, digits = 5),
+         p.value = round(p.value, digits = 5),
+         "exp(coefficient)" = round(exp(estimate), digits = 5)) %>% 
+  filter(!str_detect(term, "name")) %>%
+  bind_cols(as.data.frame(standardized_terms)) %>%
+  rename("Coefficient" = estimate,
+         "Standard error" = std.error,
+         "p-value" = p.value,
+         "Exponentiated coefficient" = "exp(coefficient)",
+         "Predictor variable" = standardized_terms) %>%
+  select("Predictor variable", "Coefficient", "Standard error", "p-value", "Exponentiated coefficient")
+
+formatted_men %>% kable()
+
+```
+
+# women
+```{r}
+
+formatted_women <- fitlog_women %>%
+  tidy() %>% 
+  mutate(estimate = round(estimate, digits = 5),
+         std.error = round(std.error, digits = 5),
+         p.value = round(p.value, digits = 5),
+         "exp(coefficient)" = round(exp(estimate), digits = 5)) %>% 
+  filter(!str_detect(term, "name")) %>%
+  bind_cols(as.data.frame(standardized_terms)) %>%
+  rename("Coefficient" = estimate,
+         "Standard error" = std.error,
+         "p-value" = p.value,
+         "Exponentiated coefficient" = "exp(coefficient)",
+         "Predictor variable" = standardized_terms) %>%
+  select("Predictor variable", "Coefficient", "Standard error", "p-value", "Exponentiated coefficient")
+
+formatted_women %>% kable()
+```
+

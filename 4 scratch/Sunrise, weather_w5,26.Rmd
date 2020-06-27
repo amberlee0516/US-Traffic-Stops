@@ -1,0 +1,298 @@
+---
+title: "Mutate, more EDA"
+author: "Amber Lee"
+date: "2/21/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(RMySQL)
+library(StreamMetabolism)
+
+con <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "<insert user here>", 
+  password = "<insert password here>", dbname = "<insert dbname here>")
+
+small_obsv <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland WHERE rand() <= .001")
+
+sample_CAoakland <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland 
+                                    WHERE rand() <=.05")
+
+CAoak <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland")
+
+```
+
+
+
+## To do this week:
+
+* Create new columns using lubridate and mutate
+
+* Work with Will on overlaying maps for Oakland
+** qm plot, toner background
+
+```{r lubridate}
+
+# Remove NA
+CAoak <- CAoak %>%
+  filter(str_detect(date, "NA", negate = TRUE))
+
+# Lubridate
+CAoak <- CAoak %>%
+  mutate(nice_date = ymd(date), 
+         nice_year = year(nice_date), 
+         nice_month = month(nice_date), 
+         nice_day = day(nice_date), 
+         nice_time = hms(time),
+         nice_day_of_year = yday(date),
+         #for sunset sunrise: 
+         posix_date_time = as.POSIXct(paste(nice_date, time), tz = "America/Los_Angeles", format = "%Y-%m-%d %H:%M:%OS"))
+
+```
+
+```{r sunriseset FAILS!}
+
+# # UTC is 8 hours ahead of PST
+# # So UTC minus 8 is PST
+# x <- sunrise.set(37.75241810000001, -122.18087990000001, "2014-03-02", timezone = "America/Los_Angeles", num.days = 1)
+# 
+# x[1,1]
+# 
+# sunrise_day_time <- str_split(x[1,1], " ")
+# sunrise_time <- sunrise_day_time[[1]][2]
+# 
+# sunrise_day_time
+# sunrise_time
+# 
+# # date should be a string
+# my_sunrise_PST <- function(lat, long, date){
+#   sunrise_table <- sunrise.set(lat, long, date, timezone = "America/Los_Angeles", num.days = 1)
+#   
+#   #Index into sunrise cell, split with space, and index into the TIME
+#   
+#   sunrise_time <- hms(str_split(x[1,1], " ")[[1]][2])
+#   return(sunrise_time)
+# }
+# 
+# my_sunrise_PST(37.75241810000001, -122.18087990000001, "2014-03-02")
+# 
+# small_obsv %>%
+#   mutate(sunrise = my_sunrise_PST(lat, lng, date))
+# 
+# # Error in seq.POSIXt(from = day, length.out = num.days, by = "days") : 'from' must be of length 1
+```
+
+```{r sunrise and set from hardin}
+library(suncalc)
+library(lutz)
+
+OaklandTZ <- lutz::tz_lookup_coords(37.75241810000001, -122.18087990000001, warn = F)
+# SanAntonioTZ <- lutz::tz_lookup_coords(29.4241, -98.4936, warn = F)
+
+
+temp_data <- data.frame(date = CAoak$nice_date, lat = CAoak$lat_num, lon = CAoak$lng_num)
+
+getSunlightTimes(data = temp_data, keep = c("sunrise", "sunset"), tz = "America/Los_Angeles") %>% head()
+
+oursunriseset <- function(latitude, longitude, date, direction = c("sunrise", "sunset")) {
+  date.lat.long <- data.frame(date = date, lat = latitude, lon = longitude)
+  if(direction == "sunrise"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz = OaklandTZ)$sunrise }else{
+      getSunlightTimes(data = date.lat.long, keep=direction, tz = OaklandTZ)$sunset } }
+
+# x <- oursunriseset(37.75241810000001, -122.18087990000001, ymd("2014-03-02"), direction = "sunrise")
+# x
+# hour(x)
+# 
+# format(x, type = "%H:%M:%S")
+# 
+# time_parse_POSIX <- function(posix_datetime) {
+#   myhour = hour(posix_datetime)
+#   myminute = minute(posix_datetime)
+#   return(paste(myhour, myminute, sep=":"))
+# }
+# 
+# 
+# y <- time_parse_POSIX(x)
+# y
+
+
+# plot the sunrise and set times
+CAoak <- CAoak %>%
+  
+  # use oursunriseset function to return posixct format sunrise and sunset times
+  mutate(sunrise = oursunriseset(lat_num, lng_num, nice_date, direction = "sunrise"),
+         sunset = oursunriseset(lat_num, lng_num, nice_date, direction = "sunset")) %>%
+
+  # night and day!!
+  mutate(light = ifelse(posix_date_time > sunrise & posix_date_time < sunset, "day", "night")) 
+  
+  # # this code doesn't quite work b/c it creates posixct time for this date (march 2nd, 2020...)
+  # mutate(sunrise_time = as.POSIXct(format(sunrise, format = "%H:%M:%S"), format = "%H:%M:%S"),
+  #        sunset_time = as.POSIXct(format(sunset, format = "%H:%M:%S"), format = "%H:%M:%S")) 
+
+# # check to see all the sunset sunrise
+# CAoak_sunriseset %>%
+#   ggplot() +
+#     geom_point(mapping = aes(x = nice_date, y = sunrise_time))
+
+# sanity check :) it worked!
+CAoak_sunriseset %>% 
+  select(posix_date_time, sunrise, sunset, light)
+
+### THIS PART IS COOL : looking at light/dark changes in activity...
+ggplot(data = CAoak_sunriseset) +
+  geom_bar(mapping = aes(x = subject_race, fill = light))
+
+### FIGURE THIS OUT
+
+CAoak_sunriseset %>%
+  group_by(outcome, light, subject_race) %>%
+  summarize(count = n()) %>%
+  mutate(category = paste(outcome, light, subject_race)) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = category, y = count), stat = "identity") +
+  coord_flip()
+  
+CAoak_sunriseset %>%
+  ggplot(aes(x = subject_race, fill = outcome, alpha = light)) +
+  geom_bar(position="dodge", colour="black") + coord_flip() + scale_alpha_manual(values=c(0.1, .5, .9))
+  
+
+
+ggplot(data = CAoak_sunriseset) +
+  geom_bar(mapping = aes(x = outcome, fill = light))
+# ggsave("night-day outcome.png")
+
+# outcome and race
+CAoak %>%
+  ggplot()+
+  geom_bar(mapping = aes(x = subject_race, fill = outcome), position = "fill")
+
+```
+Plot date time
+https://learnr.wordpress.com/2010/02/25/ggplot2-plotting-dates-hours-and-minutes/
+
+Potential problems with accuracy?
+https://github.com/mourner/suncalc/issues/101
+
+This graph confirms the accuracy of sunset/sunrise data
+
+```{r join with other data}
+
+con2 <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "student", 
+  password = "Sagehen47", dbname = "trafficbadTF")
+
+CAoak_bad <- DBI::dbGetQuery(con2, "SELECT * FROM CAoakland")
+
+CAoak_bad %>%
+  filter(use_of_force_description == "handcuffed") %>%
+ggplot() +
+  geom_bar(mapping = aes(x = outcome))
+
+CAoak %>%
+  filter(use_of_force_description == "handcuffed") %>%
+ggplot() +
+  geom_bar(mapping = aes(x = outcome))
+
+# People get hand cuffed even when just a citation, warning, or NA outcome?
+```
+
+```{r OLIVER WEATHER}
+
+library(rnoaa)
+options(noaakey = "zLqzWqraVVkczRVkGghzpNyVgqtFYiMa")
+
+# ncdc oakland 2014 
+out <- ncdc(datasetid='GHCND', stationid='GHCND:USC00046336', datatypeid='PRCP', startdate = '2014-01-01', enddate = '2014-12-31', limit = 500)
+
+# make data frame
+prcp_oak_df <- data.frame(out$data)
+prcp_oak_df
+
+# fix weather_df dates
+prcp_oak_df <- prcp_oak_df %>% 
+  mutate(nice_date = ymd_hms(date),
+         nice_day_of_year = yday(nice_date))
+
+# join traffic stop and prcp
+CAoak2014 <- CAoak %>%
+  filter(nice_year == "2014") 
+
+# right join 
+CAoak2014_prcp <- prcp_oak_df %>%
+  select(nice_date, nice_day_of_year, value) %>%
+  dplyr::rename(prcp = value) %>%
+  right_join(y = CAoak2014, by = "nice_day_of_year")
+
+CAoak2014_prcp %>%
+  #nice_date.x and nice_date.y are the same
+  group_by(nice_date.y) %>%
+  summarize(count = n(), prcp = max(prcp)) %>%
+  ggplot() + 
+  geom_line(aes(x = nice_date.y, y = count, color = "Stop Count")) + 
+  geom_line(aes(x = nice_date.y, y = prcp/5, color = "Precipitation")) +  
+  scale_y_continuous(sec.axis = sec_axis(~ .*5, name = "Temperature")) 
+# ggsave("CAoak2014_prcp.png")
+
+
+### more systematic way of looking at precipitation in a year, then stops throughout a year
+
+# stops in the year 2015
+CAoak_2015 <- CAoak %>%
+  filter(nice_year == "2015") 
+
+# graph number of stops per day for a given year
+CAoak_2015 %>%
+  group_by(nice_date) %>%
+  summarize(count = n()) %>%
+  ggplot() +
+  geom_line(aes(x = nice_date, y = count)) 
+
+# download precipitation data for 2015
+out_2015 <- ncdc(datasetid='GHCND', stationid='GHCND:USC00046336', datatypeid='PRCP', startdate = '2015-01-01', enddate = '2015-12-31', limit = 500) # CHANGE YEAR OF VARIABLE, AND IN NDCD CALL
+
+# create df and lubridated variables
+prcp_oak_2015 <- data.frame(out$data) %>%
+  mutate(nice_date = ymd_hms(date),
+         nice_day_of_year = yday(nice_date))
+
+# join traffic stop and precipitation in 2015
+CAoak2015_prcp <- prcp_oak_df %>%
+  select(nice_date, nice_day_of_year, value) %>%
+  dplyr::rename(prcp = value) %>%
+  right_join(y = CAoak_2015, by = "nice_day_of_year") 
+
+# graph
+CAoak2015_prcp %>%  
+  group_by(nice_date.y) %>%
+  summarize(count = n(), prcp = max(prcp)) %>%
+  ggplot() + 
+  geom_line(aes(x = nice_date.y, y = count, color = "Stop Count")) + 
+  geom_line(aes(x = nice_date.y, y = prcp/5, color = "Precipitation")) +  
+  scale_y_continuous(sec.axis = sec_axis(~ .*5, name = "Temperature")) 
+# ggsave("CAoak2015_prcp.png")
+
+```
+
+```{r}
+
+```
+
+```{r Will's Oakland stops, location, day/night}
+
+coord_oak <- CAoak %>% select(lat_num, lng_num, light, subject_race)
+
+#question: can one plot stops during the day, then stops during the night, and see if the locations changes a lot?
+
+#don't like the orientation of this
+qmplot(lng_num, lat_num, data = CAoak, geom = "blank", 
+  zoom = 3, maptype = "toner-background", darken = 0, legend = "topright") +
+  stat_density_2d(aes(fill = ..level..), geom = "polygon", alpha = .5, color = NA) +
+  scale_fill_gradient2("Stop\nPropensity", low = "white", mid = "yellow", high = "red", midpoint = 100)
+
+```

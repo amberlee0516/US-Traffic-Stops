@@ -1,0 +1,16 @@
+---
+title: "landscape test"
+author: "Amber Lee"
+date: "5/29/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r pressure, echo=FALSE, out.extra='angle=90', out.width='11in', fig.width=10, fig.height=5}
+
+plot(pressure)
+```

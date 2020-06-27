@@ -1,0 +1,234 @@
+---
+title: "String Manipulation for Reason for Stop (CAoakland Exploration)"
+author: "Amber Lee"
+date: "1/31/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+###  Connecting to the SQL server
+
+```{r message = FALSE}
+library(RMySQL)  
+con <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "<insert user here>", 
+  password = "<insert password here>", dbname = "<insert dbname here>")
+```
+
+Next a series of SQL queries can be sent to the database using the `DBI::dbGetQuery()` function.
+
+```{r message = FALSE}
+
+#Each query returns an R dataframe
+class(DBI::dbGetQuery(con, "SHOW TABLES"))
+
+
+#Multiple tables within our traffic database
+DBI::dbGetQuery(con, "SHOW TABLES")
+
+DBI::dbGetQuery(con, "EXPLAIN CAoakland")
+
+#Begin looking at Oakland databse
+CAoakland_eightobsv <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland LIMIT 8")
+CAoakland_eightobsv
+
+# Random sample method, using rand()
+# https://stackoverflow.com/questions/249301/simple-random-samples-from-a-sql-database
+sample_CAoakland <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland 
+                                    WHERE rand() <=.05")
+sample_CAoakland
+
+```
+
+
+### Playing around with CAoakland
+
+Practice SQL commands to analyze "reason for stop"
+
+```{r}
+
+db <- dplyr::src_mysql(dbname = "traffic", host = "traffic.st47s.com", user = "student", 
+          password="Sagehen47")
+
+CAoak <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland")
+
+head(CAoak)
+
+CAoak
+dim(CAoak)
+count(CAoak)
+```
+
+```{r Reason for stop}
+
+#See the most frequent reason for stops
+dbGetQuery(con, 
+  "SELECT reason_for_stop, COUNT(reason_for_stop) AS 'number_reason_for_stop'
+  FROM CAoakland
+  GROUP BY(reason_for_stop)
+  ORDER BY `number_reason_for_stop` ASC
+  LIMIT 10")
+
+#All reasons for stops
+CAoak_reason <- dbGetQuery(con, 
+  "SELECT reason_for_stop, COUNT(reason_for_stop) AS 'number_reason_for_stop'
+  FROM CAoakland
+  GROUP BY(reason_for_stop)
+  ORDER BY `number_reason_for_stop` ASC")
+
+#Limit to the most frequent
+CAoak_reason_short <- dbGetQuery(con, 
+  "SELECT reason_for_stop, COUNT(reason_for_stop) AS 'number_reason_for_stop'
+  FROM CAoakland
+  GROUP BY(reason_for_stop)
+  ORDER BY `number_reason_for_stop` DESC
+  LIMIT 5")
+
+CAoak_reason
+
+#Total number of observations in the top 5 reason for stops
+sum(CAoak_reason$number_reason_for_stop)
+
+ggplot(data = CAoak_reason_short) +
+  geom_bar(mapping = aes(x = reason_for_stop, y = number_reason_for_stop), stat = "identity") +
+  labs(title = "Top 5 reasons for stop")
+
+```
+
+
+```{r reason_for_stop column SQL demand}
+
+#Column with all reason_for_stop (length 133407)
+reason_for_stop_column <- dbGetQuery(con, 
+  "SELECT reason_for_stop FROM CAoakland")
+
+reason_for_stop_column
+
+CAoak_reason
+
+
+```
+
+### Attempt to clean up strings using string manipulation and regular expressions
+
+Decided not to continue because stops with weirdly labelled "reason for stop" was rare
+
+```{r Get rid of comma and isolate duplicates}
+
+# Remove comma
+reason_for_stop_column <- mutate(reason_for_stop_column, no_comma = str_replace_all(reason_for_stop, ",", ""))
+
+# Check to see that comma entries are gone
+reason_for_stop_column %>%
+  filter(str_detect(no_comma, ","))
+
+# Return TRUE if the | (pipe character) is found in the reason_for_stop entry
+# Pipe character | designates that there are multiple and/or duplicate reasons for stop
+str_detect(reason_for_stop_column[, 1], "\\|")
+
+# Table of reason_for_stop entries that have the pipe character
+reason_duplicates <- reason_for_stop_column %>%
+  filter(str_detect(reason_for_stop, "\\|"))
+
+reason_duplicates
+
+# Function to remove duplicates from StackOverflow
+# https://stackoverflow.com/questions/20283624/removing-duplicate-words-in-a-string-in-r
+
+rem_dup.one <- function(x){
+  paste(unique(trimws(unlist(strsplit(x,split="\\|",fixed=F,perl=T)))),collapse = " ")
+}
+
+# Testing individual strings will work
+rem_dup.one("Reasonable Suspicion|Reasonable Suspicion|Reasonable Suspicion|Probable Cause")
+rem_dup.one("Reasonable Suspicion|Probable Cause|Probable Cause")
+
+# But upon using mutate, function will bug.
+reason_duplicates <- reason_duplicates %>% 
+  mutate(no_duplicates = rem_dup.one(no_comma))
+
+reason_duplicates
+
+```
+
+I can't find a systematic way to get rid of the pipes. So I'm going to:
+
+Directly normalize the data
+
+* create list of official reasons
+
+* go through each entry in reason_for_stop_column SPLIT by \\| pipe character
+
+* add onto reason_for_stop_column columns that are official reasons
+
+* if the split entry has entires that are in official reason_i, mark 1 in the official reasons column or 0
+
+### Not string-related stuff
+
+I want to try EDA with other people's code! Because I don't know how to debug.
+
+# Will's
+
+```{r}
+Coordinates <- DBI::dbGetQuery(con,
+  "SELECT lng, lat, subject_race FROM CAoakland WHERE rand() <=.02")
+
+coor <- DBI::dbGetQuery(con,
+  "SELECT lng, lat, subject_race FROM CAoakland")
+
+# Note that lng and lat are of type double 
+  
+race_plot <- ggplot(Coordinates, aes(x = as.numeric(lng), y = as.numeric(lat), xaxt = 'n', yaxt = 'n')) + 
+  geom_point(aes(color = subject_race), position = "jitter", size = .25) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  coord_quickmap()
+race_plot
+
+# Facet wrap race_plot
+ggplot(Coordinates, aes(x = as.numeric(lng), y = as.numeric(lat), xaxt = 'n', yaxt = 'n')) + 
+  geom_point(aes(color = subject_race), position = "jitter", size = .25) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  coord_quickmap() +
+  facet_wrap( ~ subject_race, nrow = 2)
+
+```
+
+
+```{r}
+
+library(sf)
+library(mapview)
+
+# Mapview basics
+# https://r-spatial.github.io/mapview/articles/articles/mapview_02-advanced.html
+mapview(breweries)
+View(breweries)
+View(franconia)
+typeof(breweries$address)
+
+
+# Create empty geometries list to fill in later
+# Source: https://stackoverflow.com/questions/46385301/replace-geometries-from-a-list-in-sf
+nrows = nrow(CAoak)
+geometry = st_sfc(lapply(1:nrows, function(x) st_geometrycollection()))
+df <- st_sf(id = 1:nrows, geometry = geometry)
+df
+
+for (i in 1:nrows){
+  geo_singletrafficstop = st_point(c(CAoak$lat[i], CAoak$lng[i]))
+  df$geometry[i] = geo_singletrafficstop
+}
+
+ef <- cbind(df, CAoak$subject_race)
+
+#saving maps -- these are ugly/ I want to zoom around
+m <- mapview(ef, zcol = "sample_CAoakland.subject_race", legend = TRUE)
+
+
+```

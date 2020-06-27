@@ -1,0 +1,438 @@
+---
+title: "ISPROC Model Fix"
+author: "Amber Lee"
+date: "6/17/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load libraries, message = FALSE}
+
+library(RMySQL)
+
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(geofacet)
+
+library(XML)
+library(RCurl)
+library(lutz)
+library(suncalc)
+
+```
+
+```{r connect to sql}
+
+con <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "<insert user here>", 
+  password = "<insert password here>", dbname = "<insert dbname here>")
+```
+
+## Our logistic regression can take on the following forms
+
+* Piecewise *or* global logistic regression. Piecewise entails running a separate logistic regression per data set (city or state), so about 20. Global logistic regression entails running 1 logistic regression but is more complicated, adding a factor variable for the data set and interacting that variable with race and age, but then BPP and the data set factor variable will be linearly dependent.
+
+* Subsetting the data to only include stops that record the time of stop, race (as Black, white or Hispanic), and sex (on a binary as male or female). *Both or either* of the next two subsetting rules can be used. We include only:
+
+  * Stops occuring between -1 hour of sunset to sunset and dusk to 1 hour after dusk. Due to natural variation of sunset times, each 1 hour window will move throughout the year per data set. The advantage of considering just these stops is that we can compare stop outcomes occurring during the day with that at night. Also, because the  hour-long windows (before sunset and after dusk) are temporally close to each other, only separated from the ambiguous sunset to dusk times, we hope that the distribution of drivers and driver behavior in these two separate windows are similar. Of course, these hour-long windows move throughout the year, but -- <hopefully the police behavior doesn't change?> <but the same driver making the same commute throughout the year may not always be included?
+  
+  * Stops that don't result in an arrest. This is a broad strokes attempt to consider traffic stops that are high discretion stops, a strategy employed by Rosenfeld. Traffic stops can be conducted for a whole range of reasons, including criminal investigations and traffic violations. Stops conducted in pursuit of a criminal investigation are considered low discretion stops because -- while stops conducted for minor traffic violations are considered high discretion. By excluding the stops that result in arrests, we do our best to compare low discretionary stops with low discretionary stops that result in a search.
+  
+* Logistic regression model, predicting the probability of search conducted, given the following predictor variables: race\*(sex\*age + BPP + day/nite). Race has three levels, sex and day/nite have two, and age and BPP are continuous variables. We interact race with those four variables for the following reasons. First, the importance of disaggregating race, gender, and age effects when determining criminalization has been documented in the literature, as well as through narrative (source). (Recall the Rosenfeld example of young black men and Tillyer 2013). Next, we plausibly see how high black political power will differentially affect Black and Hispanic drivers compared to white drivers. Whether or not this is true will be shown in the model. Lastly, we interact race and the day/nite variable as a proxy for how police behavior may change between day to night. Since we are filtering out the stops that result in arrests, we assume some continuity between drivers stopped during the light and the dark. 
+
+  * The predictor variables will look different if we run a global logistic regression.
+  
+  * Interact race sex and age together? Or not -- race\*(sex\*age + BPP + day/nite) or race*(sex + age + BPP + day/nite)
+
+* Here is a NOT UPDATED state of the workflow:
+  
+  * relevant_datasets returns a list of strings, data sets names, that have the relevant variables. 
+  
+  * query_data returns a list of data sets. The data sets that are empty OR likely have poor/wrong data collection (like Pittsburgh) should return NULL rather than data set. The data sets should have a variable "dataset_name" to keep track.
+  
+    * Include a parameter for function to query a random sample of a certain percent
+  
+  * clean_data returns a list of data sets (that are cleaned, ready for being put in logistic regression). clean_data should have an input that gives flexibility to how we clean the data, i.e. if we want to filter out all stops leading to an arrest. The ways to clean data that should have flexibility are noted with an asterick \* in the beginning.
+    
+    * find the dusk and sunset times for each data set, using dataset_name, lat/long web scraper, and sunrise/dusk function
+    
+    * mutate a day/nite variable
+    
+    * use Oliver's implementation to filter out the stops occurring outside the two 1-hour windows
+    
+    * standardize variables subject_race, subject_sex, arrest_made, search_conducted to be the appropriate variable types
+    
+    * filter out subject_race to be Black white Hispanic, subject_sex to be male female
+    
+    * \* filter out arrest_made to be FALSE (or 0)
+    
+    * \* join BPP with the list of data sets by = "dataset_name"
+
+```{r "functions for querying data get_relevant_full_names", echo = FALSE}
+
+# use with regression_functions.R from Oliver. the ones I needed are pasted below
+
+is_relevant <- function(data_table_entry, variables_of_interest){
+  
+  # cancenate SQL query string
+  command <- paste("EXPLAIN", data_table_entry, sep = " ")
+  field_vector <- unlist(as.list(DBI::dbGetQuery(con, command))$Field, 
+                         use.names = FALSE)
+  
+  # of_interest_book is TRUE iff field_vector contains all the variables of interest
+  of_interest_bool <- setequal(intersect(field_vector, variables_of_interest),
+                               variables_of_interest)
+  
+  # add dataset name to vector if of_interest_bool
+  if(of_interest_bool){
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
+}
+
+is_full <- function(df, variables_of_interest){
+  
+  is_full_check <- TRUE
+  
+  for(var in variables_of_interest){
+    
+    # check that variables aren't all NAs
+    if(all(is.na(df[,var]))){
+      is_full_check <- FALSE
+    }
+  }
+  return(is_full_check)
+}
+
+get_relevant_full_names <- function(i, variables_of_interest, random_sample_percent){
+  
+  # check if dataset incldues variables_of_interest using is_relevant function
+  if(is_relevant(all_dataset_names[[i]], variables_of_interest)){
+    
+    tmp_var_string <- paste(variables_of_interest, collapse = ", ")
+    
+    # command for querying data
+    command <- paste("SELECT", tmp_var_string, "FROM", 
+            all_dataset_names[[i]], "WHERE rand() <=", random_sample_percent, sep = " ")
+    
+    tmp_df <- DBI::dbGetQuery(con, command)
+    
+    # check that variables_of_interest are actually recorded
+    if(is_full(tmp_df, variables_of_interest)){
+      
+      # append dataset name to global variable relevant_data
+      relevant_dataset_names[[i]] <<- all_dataset_names[[i]]
+      
+      # record data set name for future string splicing 
+      tmp_df$name <- all_dataset_names[[i]]
+      return(tmp_df)
+      
+    } else {
+      
+      return(NA)
+    }
+  } else {
+    
+    return(NA)
+  }
+}
+
+
+```
+
+```{r "helper functions for add_sunset_dusk function"}
+
+get_cityNames <- function(name){
+  
+  # extract name of dataset
+  check <- str_extract(name, "[a-z]+")
+  
+  if(check == "statewide"){
+    return(state.name[grep(str_sub(name, 1,2), state.abb)])
+  } else {
+    return(check)
+  }
+}
+
+# scraper function to fetch coordinates from city string
+get_coordinates <- function(city){
+
+  # city is a string
+
+  url_str <- paste("http://www.google.com/search?q=latitude+and+longitude+of+",
+             city, sep = "")
+
+  doc <- htmlParse(getURL(url_str))
+
+  # class = BNeawe iBp4i AP7Wnd retrieves the coordinates
+  coordinates <- xpathSApply(doc, "//div[@class='BNeawe iBp4i AP7Wnd']", xmlValue)[1]
+
+  clean_coordinates <- str_split(coordinates, ", ")[[1]]
+
+  # use regular expressions to extract lat and lng
+  lat <- as.numeric(str_extract(clean_coordinates[1], "\\d+\\.*\\d*"))
+  # multiple long by -1 b/c...?
+  long <- -1*as.numeric(str_extract(clean_coordinates[2], "\\d+\\.*\\d*"))
+
+  final_coordinates <- c(lat, long)
+  return(final_coordinates)
+
+}
+
+# helpfer function for add_day_night
+time_to_minute <- function(time){
+  hour(hms(time)) * 60 + minute(hms(time))
+}
+
+# helper function for add_day_night
+oursunriseset <- function(latitude, longitude, date, timezone, direction) {
+  date.lat.long <- data.frame(date = date, lat = latitude, lon = longitude)
+  if(direction == "sunset"){
+    # call getSunlightTimes from the lutz package
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$sunset 
+  } else if(direction == "sunrise"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$sunri  
+  } else if (direction == "dusk"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$dusk
+  } else if (direction == "dawn"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$dawn
+  }
+}
+
+```
+
+## write & test out clean_data function 
+
+functions needed to run this part of the code is in clean_data function.R script. (this uses oliver's veilOfDarkness_nationwide.rmd and regression_functions.R)
+
+As input, clean_data takes a list of data frames and <this many number of> parameters that determines the rules with which to clean the data. The parameter can take on 
+
+  * 
+
+clean_data then executes the following:
+
+  * filter type == "vehicle" (filter for vehicular stops)
+  * filter subject_sex == "male" | sex == "female" (filter for sex that is not NA and on a binary)
+  * filter subject_race == "black" | subject_race == "white" | subject_race == "hispanic" (filter for race that is not NA and for those three categories)
+  * filter time != NA
+  * filter date != NA
+  
+  * mutate subject_age to be as.numeric
+  * mutate subject_sex and subject_race to be factors
+  
+  * mutate search_conducted to be a binary numeric variable
+  
+  * filter outcome != "arrest" (filter our stops that have resulted in arrests to be left with high-discretionary stops only) \* parameter to make this flexible
+  
+  * mutate sunset, dusk, dawn, and/or sunrise variables 
+  * filter out NA's
+
+
+```{r}
+
+# retrieve all data set names, global variable for get_relevant_full_names
+all_dataset_names <- as.list(DBI::dbGetQuery(con, "SHOW TABLES"))$Tables_in_traffic
+
+variables_of_interest = c("subject_age", "subject_race", "subject_sex", "time", "date", "type", "search_conducted", "outcome")
+
+# global variable necessary for get_relevant_full_names
+relevant_dataset_names <- c()
+
+datasets <- lapply(seq(all_dataset_names), get_relevant_full_names, variables_of_interest, .15)
+
+# remove na's
+datasets <- datasets[!is.na(datasets)]
+relevant_dataset_names <- relevant_dataset_names[!is.na(relevant_dataset_names)]
+
+# parse through dataset name
+relevant_dataset_names <- as.data.frame(relevant_dataset_names) %>% 
+  
+    mutate(name = as.character(relevant_dataset_names),
+           state = substr(name, start = 1, stop = 2),
+         
+         # city variable will be "statewide" if data set isn't city level
+         city = ifelse(str_detect(name, "statewide"), state,
+                      str_extract(substr(name, start = 3, stop = nchar(name)),
+                                  "[a-z]+")))
+
+# pittsburgh and plano are both uggo, will be removed thru data cleaning
+
+# datasets
+# relevant_dataset_names
+
+```
+
+```{r}
+
+begin_clean <- function(dataset, drop_arrest_bool){
+  
+  dataset <- dataset %>%
+    
+    filter(
+      type == "vehicular",
+      subject_sex == "male" | subject_sex == "female",
+      subject_race == "black" | subject_race == "white" | subject_race == "hispanic",
+      !is.na(time) & time != "NA",
+      !is.na(date) & date != "NA") %>%
+    
+    mutate(
+      subject_age = as.numeric(subject_age),
+      subject_sex = as.factor(case_when(
+        subject_sex == "male" ~ "M",
+        subject_sex == "female" ~ "F")),
+      subject_race = as.factor(case_when(
+        subject_race == "white" ~ "W", 
+        subject_race == "black" ~ "B",
+        subject_race == "hispanic" ~ "H")),
+      minute_of_stop = time_to_minute(time)) %>% 
+    
+    filter(!is.na(subject_age))
+
+  # mutate search_conducted, when recorded as T/F, to be numeric
+  if(typeof(dataset$search_conducted) == "character"){
+    dataset <- dataset %>%
+      mutate(search_conducted = case_when(search_conducted == "TRUE" ~ 1,
+                                          search_conducted == "FALSE" ~ 0))
+  }
+
+  # filter out stops that resulted in arrests
+  # note: i include stops that have outcome recorded NA
+  if(drop_arrest_bool){
+    dataset <- dataset %>% filter(outcome != "arrest" | is.na(outcome))
+  }
+  
+  # return NA for empty dataset
+  if(dim(dataset)[1] == 0){
+    return(NA)
+  }
+  
+  return(dataset)
+  
+}
+
+begin_cleaned_datasets <- lapply(datasets, begin_clean, TRUE)
+begin_cleaned_datasets <- begin_cleaned_datasets[!is.na(begin_cleaned_datasets)]
+
+
+```
+
+
+```{r}
+
+# find lat/long information using get_coordinates function and relevant_dataset_names df
+coordinates_list <- lapply(as.list(relevant_dataset_names$city), get_coordinates)
+
+# bind lat/long information with relevant_dataset_names
+coordinates_city_df <- data.table::transpose(data.frame(coordinates_list)) %>%
+  rename(lat = V1, long = V2) %>%
+  bind_cols(relevant_dataset_names[2:4])
+
+# coordinates_city_df is a necessary global variable for add_dusk_sunset function
+
+# temp_dataset <- baby_cleaned_datasets[[4]]
+# coordinates_city_df %>% filter(name == baby_cleaned_datasets[[4]]$name[1])
+# hi
+# tmp_lat <- hi$lat[1]
+# tmp_long <- hi$long[1]
+# time_zone <- lutz::tz_lookup_coords(tmp_lat, tmp_long, warn = F)
+# 
+# temp_sunset_times <-
+#   temp_dataset %>% distinct(date) %>% mutate(date = as.Date(ymd(date, tz = time_zone))) %>%
+#   mutate(
+#     sunset = oursunriseset(tmp_lat, tmp_long, date, time_zone, direction = "sunset"),
+#     dusk = oursunriseset(tmp_lat, tmp_long, date, time_zone, direction = "dusk"),
+#     sunset = format(sunset, "%H:%M:%S"),
+#     dusk = format(dusk, "%H:%M:%S"),
+#     minute_of_sunset = time_to_minute(sunset),
+#     minute_of_dusk = time_to_minute(dusk))
+# 
+# temp_dataset <- temp_dataset %>% 
+#     mutate(date=as.Date(ymd(date, tz = time_zone))) %>%
+#     left_join(temp_sunset_times, by="date")
+# 
+# temp_dataset %>%
+#   mutate(sunset_dusk = as.factor(
+#     case_when(minute_of_stop - minute_of_sunset > 0 & minute_of_stop - minute_of_sunset < 30 ~ "before sunset",
+#               minute_of_stop - minute_of_dusk > 0 & minute_of_stop - minute_of_dusk < 30 ~ "after dusk",
+#               TRUE ~ "other")))
+
+add_dusk_sunset <- function(dataset, coord_city_df, window_of_stop) {
+  
+  # window of stop has MINUTES units
+  
+  dataset_name <- as.data.frame(dataset)$name[1]
+  
+  # filter for lat/long information of dataset
+  coord_city_df <- coord_city_df %>% filter(name == dataset_name)
+  
+  # intialize lat, long, tz information
+  tmp_lat <- coord_city_df$lat[1]
+  tmp_long <- coord_city_df$long[1]
+  time_zone <- lutz::tz_lookup_coords(tmp_lat, tmp_long, warn = F)
+  
+  # df for sunset and dusk times for distinct stops
+  sunset_times <- dataset %>% 
+    distinct(date) %>% 
+    mutate(date = as.Date(ymd(date, tz = time_zone)),
+           sunset = oursunriseset(tmp_lat, tmp_long, date, time_zone, direction = "sunset"),
+           dusk = oursunriseset(tmp_lat, tmp_long, date, time_zone, direction = "dusk"),
+           sunset = format(sunset, "%H:%M:%S"),
+           dusk = format(dusk, "%H:%M:%S"),
+           minute_of_sunset = time_to_minute(sunset),
+           minute_of_dusk = time_to_minute(dusk))
+
+  # filter dataset for stops occurring during window_of_stop 
+  dataset <- dataset %>% 
+    mutate(date = as.Date(ymd(date, tz = time_zone))) %>%
+    left_join(sunset_times, by="date") %>%
+    
+    # check if stop occurred within window_of_stop length from dusk or sunset
+    mutate(sunset_dusk = as.factor(
+      case_when(minute_of_stop - minute_of_sunset > 0 & 
+                  minute_of_stop - minute_of_sunset < window_of_stop ~ "before sunset",
+                minute_of_stop - minute_of_dusk > 0 & 
+                  minute_of_stop - minute_of_dusk < window_of_stop ~ "after dusk",
+                TRUE ~ "other"))) %>%
+    filter(sunset_dusk != "other")
+  
+  # filter out if not enough data points
+  if(dim(dataset)[1] < 200){
+    return(NA)
+  }
+  
+  return(dataset)
+  
+}
+
+middle_cleaned_datasets <- lapply(begin_cleaned_datasets, add_dusk_sunset, coordinates_city_df, 30)
+
+middle_cleaned_datasets <- middle_cleaned_datasets[!is.na(middle_cleaned_datasets)]
+
+BPP_data_collection_helper <- function(dataset){
+  
+  dataset <- dataset %>%
+    mutate(year = as.numeric(lubridate::year(date)),
+           earliest_year = min(year),
+           latest_year = max(year)) %>%
+    select(name, earliest_year, latest_year) %>%
+    head(1)
+  
+  return(dataset)
+    
+  
+}
+
+years_BPP_data_collection <- lapply(middle_cleaned_datasets, BPP_data_collection_helper)
+years_BPP_data_collection <- bind_rows(years_BPP_data_collection, .id = "column_label")
+write.csv(years_BPP_data_collection, "years_BPP_data_collection.csv")
+
+```
+
+
+
+

@@ -1,0 +1,193 @@
+---
+title: "CAOakland Exploration"
+author: "Amber Lee"
+date: "1/31/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+###  Connecting to the SQL server
+
+```{r message = FALSE}
+library(RMySQL)  
+con <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "<insert user here>", 
+  password = "<insert password here>", dbname = "<insert dbname here>")
+```
+
+Next a series of SQL queries can be sent to the database using the `DBI::dbGetQuery()` function.
+
+```{r message = FALSE}
+
+#Each query returns an R dataframe
+class(DBI::dbGetQuery(con, "SHOW TABLES"))
+
+#Multiple tables within our traffic database
+DBI::dbGetQuery(con, "SHOW TABLES")
+
+#'Explain' command describe ten variables (field names) in the a table
+DBI::dbGetQuery(con, "EXPLAIN CAoakland")
+
+#Begin looking at Oakland databse
+CAoakland_eightobsv <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland LIMIT 8")
+CAoakland_eightobsv
+
+```
+
+
+### Playing around with CAoakland
+
+Exploring demographics of motorists stopped: race, sex, age, reason for stop
+
+```{r}
+
+db <- dplyr::src_mysql(dbname = "traffic", host = "traffic.st47s.com", user = "student", 
+          password="Sagehen47")
+
+CAoak <- dplyr::tbl(db, "CAoakland")
+
+head(CAoak)
+
+CAoak
+dim(CAoak)
+count(CAoak)
+```
+
+```{r Race and sex}
+
+ggplot(data = CAoak) +
+  geom_bar(mapping = aes(x = subject_race, fill = subject_sex)) +
+  labs(title = "Subject race and sex counts")
+
+```
+
+* Note that males get stopped more in every single race category.
+
+* Males are disproportionately stopped for API, hispanic, black, and "other" races.
+
+* How does the distribution of traffic stop counts per race relate to the distribution of race in Oakland?
+
+```{r Reason for stop}
+
+#See the most frequent reason for stops
+dbGetQuery(con, 
+  "SELECT reason_for_stop, COUNT(reason_for_stop) AS 'number_reason_for_stop'
+  FROM CAoakland
+  GROUP BY(reason_for_stop)
+  ORDER BY `number_reason_for_stop` ASC
+  LIMIT 10")
+
+#All reasons for stops
+dbGetQuery(con, 
+  "SELECT reason_for_stop, COUNT(reason_for_stop) AS 'number_reason_for_stop'
+  FROM CAoakland
+  GROUP BY(reason_for_stop)
+  ORDER BY `number_reason_for_stop` ASC")
+
+#Limit to the most frequent
+CAoak_reason <- dbGetQuery(con, 
+  "SELECT reason_for_stop, COUNT(reason_for_stop) AS 'number_reason_for_stop'
+  FROM CAoakland
+  GROUP BY(reason_for_stop)
+  ORDER BY `number_reason_for_stop` DESC
+  LIMIT 5")
+
+CAoak_reason
+
+#Total number of observations in the top 5 reason for stops
+sum(CAoak_reason$number_reason_for_stop)
+
+ggplot(data = CAoak_reason) +
+  geom_bar(mapping = aes(x = reason_for_stop, y = number_reason_for_stop), stat = "identity") +
+  labs(title = "Reason for stop")
+
+```
+
+* Traffic violation seems to be the most frequent reason for stop, but this is not counting all the duplicates!
+
+* Would this be helpful to know? To clean the reason_for_stop?
+
+```{r Temporality of stops}
+
+#See the number of stops per day
+CAoak_day_NA <- dbGetQuery(con, 
+  "SELECT date, COUNT(date) AS 'number_stops_day'
+  FROM CAoakland
+  GROUP BY(date)
+  ORDER BY `number_stops_day` ASC")
+
+#Remove the NA column
+CAoak_day <- CAoak_day_NA[-c(1),] 
+
+library(lubridate)
+
+#Use lubridate to make nice_day variable, which is just date-type variable
+CAoak_day <- CAoak_day %>%
+  mutate(nice_day = ymd(date))
+
+#Plot number of stops throughout time
+ggplot(data = CAoak_day, mapping = aes(x = nice_day, y = number_stops_day)) +
+  geom_point() +
+  geom_smooth() +
+  labs(title = "Stop per day")
+  
+#Make year variable for facet wrap
+CAoak_day <- CAoak_day %>%
+  mutate(nice_year = year(nice_day))
+
+#Plot number of stops throughout time, but per year
+ggplot(data = dplyr::filter(CAoak_day, nice_year == 2013), mapping = aes(x = nice_day, y = number_stops_day)) +
+  geom_point() +
+  geom_smooth()
+
+ggplot(data = dplyr::filter(CAoak_day, nice_year == 2014), mapping = aes(x = nice_day, y = number_stops_day)) +
+  geom_point() +
+  geom_smooth()
+
+ggplot(data = dplyr::filter(CAoak_day, nice_year == 2015), mapping = aes(x = nice_day, y = number_stops_day)) +
+  geom_point() +
+  geom_smooth()
+
+ggplot(data = dplyr::filter(CAoak_day, nice_year == 2016), mapping = aes(x = nice_day, y = number_stops_day)) +
+  geom_point() +
+  geom_smooth()
+
+ggplot(data = dplyr::filter(CAoak_day, nice_year == 2017), mapping = aes(x = nice_day, y = number_stops_day)) +
+  geom_point() +
+  geom_smooth()
+
+# I wasn't able to write a helpful function ):
+# plot_years_CAoak <- function(start_year, end_year) { for (i_year in seq(start_year, end_year, 1)) 
+#   {
+# ggplot(data = dplyr::filter(CAoak_day, nice_year == i_year), mapping = aes(x = nice_day, y = number_stops_day)) +
+#   geom_point() +
+#   geom_smooth()
+# }
+# }
+
+plot_years_CAoak(2013, 2017)
+
+```
+
+* Why is there a discontinuity in the data? in the last month of 2015?
+
+* What is the pattern (or lack thereof) among each year?
+
+* Note the abrupt jump from October 2014 to January 2015
+
+
+```{r Age}
+
+#Average age
+
+dbGetQuery(con, 
+  "SELECT subject_race, AVG(subject_age) AS 'ave age' 
+  FROM CAoakland
+  GROUP BY subject_race
+  ORDER BY `ave age`")
+
+```

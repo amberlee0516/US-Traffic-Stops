@@ -1,0 +1,593 @@
+---
+title: "Summary of Weeks 1-8"
+author: "Amber Lee"
+date: "4/27/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(RMySQL)
+library(suncalc)
+library(lutz)
+library(lubridate)
+
+# Connect to Oakland dataset
+con <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "<insert user here>", 
+  password = "<insert password here>", dbname = "<insert dbname here>")
+
+CAoak <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland")
+
+# Lubridate
+CAoak <- CAoak %>%
+  filter(!is.na(date)) %>%
+  mutate(nice_date = ymd(date), 
+         nice_year = year(nice_date), 
+         nice_month = month(nice_date), 
+         nice_day = day(nice_date), 
+         nice_time = hms(time),
+         nice_day_of_year = yday(date),
+         
+         #for sunset sunrise: 
+         posix_date_time = as.POSIXct(paste(nice_date, time), tz = "America/Los_Angeles", format = "%Y-%m-%d %H:%M:%OS"))
+
+```
+
+```{r sunrise/sunset set up}
+
+OaklandTZ <- lutz::tz_lookup_coords(37.75241810000001, -122.18087990000001, warn = F)
+# SanAntonioTZ <- lutz::tz_lookup_coords(29.4241, -98.4936, warn = F)
+
+temp_data <- data.frame(date = CAoak$nice_date, lat = CAoak$lat, lon = CAoak$lng)
+
+getSunlightTimes(data = temp_data, keep = c("sunrise", "sunset"), tz = "America/Los_Angeles") %>% head()
+
+oursunriseset <- function(latitude, longitude, date, direction = c("sunrise", "sunset")) {
+  date.lat.long <- data.frame(date = date, lat = latitude, lon = longitude)
+  if(direction == "sunrise"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz = OaklandTZ)$sunrise }else{
+      getSunlightTimes(data = date.lat.long, keep=direction, tz = OaklandTZ)$sunset } }
+
+# add light variable 
+CAoak <- CAoak %>%
+  
+  # use oursunriseset function to return posixct format sunrise and sunset times
+  mutate(sunrise = oursunriseset(lat, lng, nice_date, direction = "sunrise"),
+         sunset = oursunriseset(lat, lng, nice_date, direction = "sunset")) %>%
+
+  mutate(light = ifelse(posix_date_time > sunrise & posix_date_time < sunset, "day", "night")) %>%
+  
+  # about 100 NA's to filter out
+
+  filter(!is.na(light))
+
+```
+
+# Race-related Visualizations
+
+## To be included in the final report
+
+```{r initial visualizations race}
+
+# Race and sex
+
+ggplot(data = CAoak) +
+  geom_bar(mapping = aes(x = subject_race, fill = subject_sex))
+ggsave("race and sex.png")
+
+# Race and age
+
+# 102,724 (77%) of the observations *do not* have subject_age recorded
+# CAoak %>%
+#   group_by(subject_age) %>%
+#   summarize(count = n())
+
+## Age is only recorded for the year 2017
+
+CAoak %>%
+  filter(!is.na(subject_age)) %>%
+  group_by(nice_date, subject_race) %>%
+  summarize(count = n()) %>%
+  ggplot(aes(x = nice_date, y = count, color = subject_race)) +
+  geom_point()
+
+# average age of stop for Black and Latinx is lower than for average age of white and API
+
+dbGetQuery(con, 
+  "SELECT subject_race, AVG(subject_age) AS 'ave age' 
+  FROM CAoakland
+  GROUP BY subject_race
+  ORDER BY `ave age`")
+
+CAoak %>%
+  filter(subject_age < 50 & subject_age > 18) %>%
+  filter(subject_race != "asian/pacific islander" & subject_race != "other") %>%
+  ggplot +
+  geom_bar(mapping = aes(x = subject_age, fill = subject_race), position = "dodge")
+ggsave("age of motorist by race, BWH.png")
+
+CAoak %>%
+  filter(!is.na(subject_age), subject_age >= 20 & subject_age < 60) %>%
+  mutate(age_group = case_when(subject_age >= 20 & subject_age < 25 ~ "20 to 24",
+                               subject_age >= 25 & subject_age < 30 ~ "25 to 30",
+                               subject_age >= 30 & subject_age < 35 ~ "30 to 34",
+                               subject_age >= 35 & subject_age < 40 ~ "35 to 39",
+                               subject_age >= 40 & subject_age < 45 ~ "40 to 44",
+                               subject_age >= 45 & subject_age < 50 ~ "45 to 49",
+                               subject_age >= 50 & subject_age < 55 ~ "50 to 54",
+                               subject_age >= 55 & subject_age < 60 ~ "55 to 60")) %>%
+  ggplot(aes(x = age_group, fill = subject_race)) +
+  geom_bar(position = "dodge")
+ggsave("age of motorist by race, all races and binned ages.png")
+
+```
+
+## NOT to be included in the final report
+
+```{r}
+
+# outcome and race
+CAoak %>%
+  ggplot()+
+  geom_bar(mapping = aes(x = subject_race, fill = outcome), position = "dodge")
+ggsave("outcome and race.png")
+
+```
+
+
+## Incorporating Day/Night Variable in race analysis 
+
+```{r}
+
+# Day/night
+
+# see how drivers are stopped by race and light in absolute counts
+ggplot(data = CAoak) +
+  geom_bar(mapping = aes(x = subject_race, fill = light))
+ggsave("night and day stop counts by race.png")
+
+# percentage of each racial group stopped during the day
+CAoak %>%
+  group_by(subject_race, light) %>%
+  summarize(count = n()) %>%
+  spread(key = light, value = count) %>%
+  mutate(total_stops = sum(day, night),
+         perc_light = day / total_stops) %>%
+  ggplot(aes(x = subject_race, y = perc_light)) +
+  geom_bar(stat = "identity")
+ggsave("night and day stop percents by race.png")
+
+# how are outcomes of stops affected by race and time of day?
+  
+CAoak %>%
+  ggplot(aes(x = subject_race, fill = outcome, color = outcome, alpha = light)) +
+  geom_bar(position="dodge") + 
+  scale_alpha_manual(values=c(.2, .9))
+ggsave("outcome and race and light.png")
+
+CAoak %>%
+  ggplot() +
+  geom_bar(aes(x = search_conducted, fill = subject_race)) +
+  facet_wrap(~ outcome)
+
+```
+
+### TODO: MAKE outcome, race, and light/day 
+
+# Outcomes
+find the difference between # of drivers with search conducted - # of drivers with search conducted and arrest made, for each age and race
+
+## Compare ALL stops with stop AND search
+
+```{r}
+
+stop_searches <- CAoak %>%
+  
+  # count stops by search or no search
+  group_by(subject_race, subject_age, search_conducted) %>%
+  summarize(count = n())
+
+# stops regardless of search was conducted
+stops_and_searches <- CAoak %>%
+  ungroup() %>%
+  group_by(subject_race, subject_age) %>%
+  summarize(count = n()) %>%
+  select(subject_race, subject_age, count) %>%
+  rename(stopsearch_count = count)
+
+# stops that DID result in searches
+searches_only <- stop_searches %>%
+  ungroup() %>%
+  filter(search_conducted == 1) %>%
+  select(subject_race, subject_age, count) %>%
+  rename(search_count = count)
+
+# absolute numbers
+stops_and_searches %>%
+  full_join(searches_only, by = c("subject_race", "subject_age")) %>%
+  
+  # number of stops WITHOUT a search minus stops WITH a search
+  mutate(difference_stop_search = stopsearch_count - search_count) %>%
+  ggplot() + 
+  geom_bar(aes(x = subject_age, y = difference_stop_search, fill = subject_race), stat = "identity") +
+  facet_wrap(~ subject_race)
+
+ggsave("all stop and search differences absolute.png")
+
+
+#percentages
+stops_and_searches %>%
+  full_join(searches_only, by = c("subject_race", "subject_age")) %>%
+  
+   # number of stops WITHOUT a search minus stops WITH a search
+  mutate(difference_stop_search = (stopsearch_count - search_count)/(stopsearch_count + search_count)) %>%
+  ggplot() + 
+  geom_bar(aes(x = subject_age, y = difference_stop_search, fill = subject_race), stat = "identity") +
+  facet_wrap(~ subject_race)
+
+ggsave("all stop and search differences percent.png")
+
+```
+
+## Compare stops AND NO search and stops AND search
+
+```{r}
+
+stop_searches <- CAoak %>%
+  
+  # count stops by search or no search
+  group_by(subject_race, subject_age, search_conducted) %>%
+  summarize(count = n())
+
+# stops that DID NOT result in searches
+stops_no_search <- stop_searches %>%
+  ungroup() %>%
+  filter(search_conducted == 0) %>%
+  select(subject_race, subject_age, count) %>%
+  rename(stop_count = count)
+
+# stops that DID result in searches
+# searches_only 
+
+# absolute numbers
+stops_no_search %>%
+  full_join(searches_only, by = c("subject_race", "subject_age")) %>%
+  
+  # number of stops WITHOUT a search minus stops WITH a search
+  mutate(difference_stop_search = stop_count - search_count) %>%
+  ggplot() + 
+  geom_bar(aes(x = subject_age, y = difference_stop_search, fill = subject_race), stat = "identity") +
+  facet_wrap(~ subject_race)
+
+ggsave("stop and search differences absolute.png")
+
+
+#percentages
+stops_no_search %>%
+  full_join(searches_only, by = c("subject_race", "subject_age")) %>%
+  
+   # number of stops WITHOUT a search minus stops WITH a search
+  mutate(difference_stop_search = (stop_count - search_count)/(search_count+stop_count)) %>%
+  ggplot() + 
+  geom_bar(aes(x = subject_age, y = difference_stop_search, fill = subject_race), stat = "identity") +
+  facet_wrap(~ subject_race)
+
+ggsave("stop and search differences percent.png")
+
+```
+
+## Compare ALL searches with search AND arrest
+
+```{r}
+
+search_arrests <- CAoak %>%
+  
+  # filter for drivers who are stopped, b/w/h
+  #filter(search_conducted == 1, subject_race != "asian/pacific islander", subject_race != "other", subject_age > 14, subject_age < 70) %>%
+  
+  # count number of stops per age 
+  group_by(subject_race, subject_age, search_conducted, arrest_made) %>%
+  summarize(count = n())
+
+# stops that resulted in searches
+# searches_only
+
+# stops that resulted in search and arrests
+search_and_arrests <- search_arrests %>%
+  ungroup() %>%
+  filter(search_conducted == 1, arrest_made == 1) %>%
+  select(subject_race, subject_age, count) %>%
+  rename(arrest_count = count)
+
+# absolute numbers
+searches_only %>%
+  full_join(search_and_arrests, by = c("subject_race", "subject_age")) %>%
+  
+  # number of stops WITHOUT a search minus stops WITH a search
+  mutate(difference_stop_search = search_count - arrest_count) %>%
+  ggplot() + 
+  geom_bar(aes(x = subject_age, y = difference_stop_search, fill = subject_race), stat = "identity") +
+  facet_wrap(~ subject_race)
+
+# ggsave("all stop and search differences absolute.png")
+
+
+#percentages
+searches_only %>%
+  full_join(search_and_arrests, by = c("subject_race", "subject_age")) %>%
+  
+   # number of stops WITHOUT a search minus stops WITH a search
+  mutate(difference_stop_search = (search_count - arrest_count)/(search_count + arrest_count)) %>%
+  ggplot() + 
+  geom_bar(aes(x = subject_age, y = difference_stop_search, fill = subject_race), stat = "identity") +
+  facet_wrap(~ subject_race)
+
+# ggsave("all stop and search differences percent.png")
+
+```
+
+## Compare search AND NO arrest with search AND arrest
+
+```{r}
+
+# looking at stops that led to at least a search
+# search_arrests
+
+# count searches that led to no arrest
+searches_no_arrest <- search_arrests %>%
+  filter(search_conducted == 1, arrest_made == 0) %>%
+  select(subject_race, subject_age, count) %>%
+  rename(search_count = count)
+
+# count searches that led to arrests
+# search_and_arrests
+
+# absolute numbers
+searches_no_arrest %>%
+  full_join(search_and_arrests, by = c("subject_race", "subject_age")) %>%
+  mutate(difference_search_arrest = search_count - arrest_count) %>%
+  ggplot() + 
+  geom_bar(aes(x = subject_age, y = difference_search_arrest, fill = subject_race), stat = "identity") +
+  facet_wrap(~ subject_race)
+
+ggsave("search and arrest differences absolute.png")
+
+#percentages
+searches_no_arrest %>%
+  full_join(search_and_arrests, by = c("subject_race", "subject_age")) %>%
+  mutate(difference_search_arrest = (search_count - arrest_count)/(search_count+arrest_count)) %>%
+  ggplot() + 
+  geom_bar(aes(x = subject_age, y = difference_search_arrest, fill = subject_race), stat = "identity") +
+  facet_wrap(~ subject_race)
+
+ggsave("search and arrest differences percent.png")
+
+```
+
+Searches AND no arrest minus searches AND arrest.
+Willy nilly searches?
+
+When difference_search_arrest is positive, then the number of high-discretionary searches (meaning, the number of searches that occured *without* resulting in an arrest, so police had high discretion in pulling those drivers over) is high. We see that the percent of high-discretionary stops over all discretionary stops is almost entirely positive for black drivers under 50 and hispanic drivers under 30. 
+
+# Reason for stop investigation
+
+```{r reason for stop}
+
+# Most frequent reason for stops
+frequent_reasons_CAoak <- dbGetQuery(con, 
+  "SELECT reason_for_stop, COUNT(reason_for_stop) AS 'number_reason_for_stop'
+  FROM CAoakland
+  GROUP BY(reason_for_stop)
+  ORDER BY `number_reason_for_stop` DESC
+  LIMIT 5")
+
+frequent_reasons_CAoak
+
+# Least frequent reason for stops (messy data)
+
+dbGetQuery(con, 
+  "SELECT reason_for_stop, COUNT(reason_for_stop) AS 'number_reason_for_stop'
+  FROM CAoakland
+  GROUP BY(reason_for_stop)
+  ORDER BY `number_reason_for_stop` ASC
+  LIMIT 5")
+
+# Plot absolute and relative number of stops for frequent reasons
+
+ggplot(data = frequent_reasons_CAoak) +
+  geom_bar(mapping = aes(x = reason_for_stop, y = number_reason_for_stop), stat = "identity")
+
+frequent_reasons_CAoak %>%
+  mutate(perc = number_reason_for_stop/sum(frequent_reasons_CAoak$number_reason_for_stop)) %>%
+  ggplot(aes(x = reason_for_stop, y = perc)) +
+  geom_bar(stat = "identity")
+
+# Relative number of cleanly coded reason for stop
+sum(frequent_reasons_CAoak$number_reason_for_stop)/dim(CAoak)[1]
+
+
+```
+
+Most of the 133,407 traffic stops in Oakland have a cleanly-coded reason for stop. The most frequently cited reason is traffic violation (70+%).
+
+# Maps
+
+```{r}
+
+coor <- DBI::dbGetQuery(con, "SELECT lng, lat, subject_race FROM CAoakland")
+
+# Note that lng and lat are of type double 
+  
+ggplot(coor, aes(x = as.numeric(lng), y = as.numeric(lat), xaxt = 'n', yaxt = 'n')) + 
+  geom_point(aes(color = subject_race), position = "jitter", size = .25) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  coord_quickmap()
+
+# Facet wrap race_plot
+ggplot(coor, aes(x = as.numeric(lng), y = as.numeric(lat), xaxt = 'n', yaxt = 'n')) + 
+  geom_point(aes(color = subject_race), position = "jitter", size = .25) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  coord_quickmap() +
+  facet_wrap( ~ subject_race, nrow = 2)
+```
+
+#To do: add the empirical search probabilities and make it pretty
+
+```{r}
+# create list of all dataset names
+all_dataset_names <-as.list(DBI::dbGetQuery(con, "SHOW TABLES"))$Tables_in_traffic
+# all_dataset_names
+
+variables_of_interest <- c("subject_age", "subject_race", "subject_sex", "date", "search_conducted")
+
+relevant_datasets <- function(all_dataset_names, variables_of_interest){
+  
+  # create empty vector
+  datasets_of_interest <- c()
+    
+  for(city in all_dataset_names){
+    
+    # cancenate SQL query string
+    command <- paste("EXPLAIN", city, sep = " ")
+    field_vector <- unlist(as.list(DBI::dbGetQuery(con, command))$Field, 
+                           use.names = FALSE)
+    
+    # able to check if subject_age lives as a different variable name
+    # print(field_vector)
+    
+    # of_interest_book is TRUE iff field_vector contains all the variables of interest
+    of_interest_bool <- setequal(intersect(field_vector, variables_of_interest),
+                                 variables_of_interest)
+    
+    # add dataset name to vector if of_interest_bool
+    if(of_interest_bool){
+      datasets_of_interest <- c(datasets_of_interest, city)
+    }
+  }
+  
+  return(datasets_of_interest)
+}
+
+datasets_of_interest <- relevant_datasets(all_dataset_names, variables_of_interest)
+datasets_of_interest
+```
+
+a) query each dataset of interest (27 in total), just the variables of interest (search conducted, subject race, etc.). (optional: maybe randomly sample 10% from each dataset). for loop through datasets of interest and download. -- DONE!
+```{r}
+
+datasets_of_interest
+truncate_datasets = datasets_of_interest[2:6]
+
+for(city in datasets_of_interest){
+  
+  # cancenate SQL query string
+  # save only .1% of dataset bc my computer is tired
+  command <- paste("SELECT subject_age, subject_race, subject_sex, date, search_conducted FROM", city, "WHERE rand() <= .01", sep = " ")
+  
+  # save dataset with unique names 
+  assign(paste(city), DBI::dbGetQuery(con, command))
+  # make a global variable in assign thru envir = .GlobalEnv
+  
+  }
+
+```
+
+go thru datasets
+1. download total stop counts by race and total search counts by race
+2. join the two datasets
+3. calculate (rolling) avg. probability of being searched
+4. create 4 column df
+5. cbind the df from #4 to the original initialized df
+```{r}
+
+# function whose input is a list of datasets
+# return one giant dataset
+
+p_search_conducted <- function(dataset_name){
+
+  # first, check the type of search_conducted using EXPLAIN
+  
+  dataset_str <- paste(dataset_name)
+  
+  explain_command_str <- paste("EXPLAIN", dataset_name, sep = " ")
+  
+  explain_df <- dbGetQuery(con, explain_command_str) %>%
+    filter(Field == "search_conducted") %>%
+    mutate(dataset = dataset_str) %>%
+    select(Field, Type, dataset)
+  
+  # note that explain_df[1, 2] is the entry that has the type of search_conducted
+  
+  # second, create SQL search strings based on type of search_conducted
+  
+  if (explain_df[1, 2] == "varchar(50)") {
+    
+      search_numerator_sql <- paste("SELECT subject_age, subject_race, 
+                                COUNT(*) as 'search_counts' FROM",
+                                dataset_str, 
+                                "WHERE (subject_race='black' 
+                                OR subject_race = 'white') 
+                                AND search_conducted = 'TRUE' 
+                                AND subject_age > 0 
+                                GROUP BY subject_age, subject_race", sep = " ")
+    
+  } else if (explain_df[1, 2] == "double") {
+    
+      search_numerator_sql <- paste("SELECT subject_age, subject_race, 
+                                COUNT(*) as 'search_counts' FROM",
+                                dataset_str, 
+                                "WHERE (subject_race='black' 
+                                OR subject_race = 'white') 
+                                AND search_conducted = '1' 
+                                AND subject_age > 0 
+                                GROUP BY subject_age, subject_race", sep = " ")
+      
+  }
+  
+  stops_denominator_sql <- paste("SELECT subject_age, subject_race, 
+                                 COUNT(*) as 'total_stop_counts' FROM", 
+                                 dataset_str, 
+                                 "WHERE (subject_race='black' 
+                                 OR subject_race = 'white') 
+                                 AND subject_age > 0 
+                                 GROUP BY subject_age, subject_race", sep = " ")
+  
+  # third, calculate % search_conducted per age in df thru query
+  
+  search_numerator <- dbGetQuery(con, search_numerator_sql)
+  
+  stops_denominator <- dbGetQuery(con, stops_denominator_sql)
+  
+  # fourth, combine results into one df 
+  
+  search_probability <- search_numerator %>%
+    right_join(stops_denominator, by = c("subject_race", "subject_age")) %>%
+    replace_na(list(search_counts = 0)) %>%
+    mutate(search_percent = search_counts / total_stop_counts,
+           
+           # create column for dataset name
+           dataset = dataset_str,
+           subject_age = as.numeric(subject_age))
+  
+  return(search_probability)
+
+}
+
+search_probs_list <- lapply(datasets_of_interest, p_search_conducted)
+
+search_probs_list
+
+combined_search_probs_list <- bind_rows(search_probs_list, .id = "column_label")
+
+combined_search_probs_list %>%
+  filter(dataset != "PApittsburgh") %>%
+  ggplot() +
+  geom_point(mapping = aes(x = subject_age, y = search_percent, color = subject_race), alpha = .4) +
+  facet_wrap(~ dataset) +
+  scale_y_continuous(limits = c(0, .4))
+```

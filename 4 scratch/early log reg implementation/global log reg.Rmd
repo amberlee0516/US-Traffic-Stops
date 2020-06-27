@@ -1,0 +1,512 @@
+---
+title: "log reg"
+author: "Amber Lee"
+date: "4/17/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(shiny)
+library(lubridate)
+library(tidyverse)
+library(stringr)
+library(RMySQL)  
+library(caret)
+library(rpart)
+library(zoo)
+library(tibbletime)
+
+con <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "<insert user here>", 
+  password = "<insert password here>", dbname = "<insert dbname here>")
+
+# 72 tables, good job oliver!
+DBI::dbGetQuery(con, "SHOW TABLES")
+
+# CAoak <- DBI::dbGetQuery(con, "SELECT * FROM CAoakland")
+
+# random sample from the compiled datasets
+# stops_city_sample <- DBI::dbGetQuery(con, "SELECT * FROM opp_stops_city 
+#                                     WHERE rand() <=.1")
+# 
+# stops_state_sample <- DBI::dbGetQuery(con, "SELECT * FROM opp_stops_city 
+#                                     WHERE rand() <=.1")
+
+```
+
+```{r step 1 relevant datasets function}
+
+# create list of all dataset names
+all_dataset_names <-as.list(DBI::dbGetQuery(con, "SHOW TABLES"))$Tables_in_traffic
+# all_dataset_names
+
+variables_of_interest <- c("subject_age", "subject_race", "subject_sex", "date", "search_conducted")
+
+relevant_datasets <- function(all_dataset_names, variables_of_interest){
+  
+  # create empty vector
+  datasets_of_interest <- c()
+    
+  for(city in all_dataset_names){
+    
+    # cancenate SQL query string
+    command <- paste("EXPLAIN", city, sep = " ")
+    field_vector <- unlist(as.list(DBI::dbGetQuery(con, command))$Field, 
+                           use.names = FALSE)
+    
+    # able to check if subject_age lives as a different variable name
+    # print(field_vector)
+    
+    # of_interest_book is TRUE iff field_vector contains all the variables of interest
+    of_interest_bool <- setequal(intersect(field_vector, variables_of_interest),
+                                 variables_of_interest)
+    
+    # add dataset name to vector if of_interest_bool
+    if(of_interest_bool){
+      datasets_of_interest <- c(datasets_of_interest, city)
+    }
+  }
+  
+  return(datasets_of_interest)
+}
+
+datasets_of_interest <- relevant_datasets(all_dataset_names, variables_of_interest)
+datasets_of_interest
+```
+
+
+next steps:
+1. relevant_datasets function -- DONE!
+2. two for-loops
+a) query each dataset of interest (27 in total), just the variables of interest (search conducted, subject race, etc.). (optional: maybe randomly sample 10% from each dataset). for loop through datasets of interest and download. -- DONE!
+b1) looop through dataset of interest to do log reg: use mutate, case_when to make search_conducted a boolean
+b2) run ivy's code to do log reg. parse coefficients
+b3) create/update coefficients dataframe. column 1 = dataset name, column 2 = intercept, etc. DONE!
+
+3. plot. what are we plotting?
+a) use geofacet package
+
+```{r step 2 part a}
+
+datasets_of_interest
+truncate_datasets = datasets_of_interest[2:6]
+
+for(city in datasets_of_interest){
+  
+  # cancenate SQL query string
+  # save only .1% of dataset bc my computer is tired
+  command <- paste("SELECT subject_age, subject_race, subject_sex, date, search_conducted FROM", city, "WHERE rand() <= .01", sep = " ")
+  
+  # save dataset with unique names 
+  assign(paste(city), DBI::dbGetQuery(con, command))
+  # make a global variable in assign thru envir = .GlobalEnv
+  
+  }
+
+
+
+
+# manually remove unhelpful datasets
+# WAstatewide2020 and ILstatewide are empty
+# TX plano has subject_age NA 
+
+remove_empty_datasets <- c("WAstatewide2020", "ILstatewide", "TXplano")
+datasets_of_interest <- datasets_of_interest[! datasets_of_interest %in% remove_empty_datasets]
+
+# manually import CAoak because subject_age was only recorded for one year
+
+CAoakland <- DBI::dbGetQuery(con, "SELECT subject_age, subject_race, subject_sex, date, search_conducted FROM CAoakland")
+
+```
+
+
+```{r step 2 part b}
+
+coefficient_matrix <- data.frame("intercept" = numeric(), "subject_age" = numeric(), "subject_race" = as.numeric(), "subject_age.subject_race" = as.numeric(), "dataset_name" = character())
+
+for(city in datasets_of_interest){
+  
+  # call dataframe from a string, use get()
+  dataset <- get(city)
+  
+  # clean data 
+  if (typeof(dataset$search_conducted) == "character"){
+    
+    dataset <- dataset %>%
+      filter(subject_race == "black" | subject_race == "white") %>%
+      mutate(search_binary = case_when(search_conducted = TRUE ~ 1,
+                                       search_conducted = FALSE~ 0))
+  } else {
+    
+    # some datasets have search_conducted as already a dbl
+    dataset <- dataset %>%
+    filter(subject_race == "black" | subject_race == "white") %>%
+    mutate(search_binary = search_conducted)
+  
+  }
+  
+  # run logistic regression
+  fitlog <- glm(formula = search_binary ~ as.numeric(subject_age)*as.factor(subject_race), data = dataset, family = binomial, control = list(maxit = 50))
+  
+  # record logistic regression coefficients
+  coefficient_row_vector = t(fitlog$coefficients)
+  
+  dataset_name = c(paste(city))
+  
+  # save coefficients and dataset name as <name of dataset>_coefficient
+  assign(paste(city, "coefficient", sep = "_"), cbind.data.frame(coefficient_row_vector, dataset_name))
+  
+  # row bind each coefficient and dataset tibble with the coefficent_matrix
+  coefficient_matrix <- rbind(coefficient_matrix, cbind.data.frame(coefficient_row_vector, dataset_name))
+
+}
+head(coefficient_matrix)
+```
+
+```{r}
+
+# create a state abbreviation variable in coefficient matrix
+
+coefficient_matrix <- coefficient_matrix %>%
+  
+  # use substr to index into first and second strings of each data set
+  mutate(state_abbreviation = substr(paste(dataset_name), 1, 2)) 
+
+colnames(coefficient_matrix) <- c("intercept", "subject_age", "white", "subject_age.white", "dataset_name", "state")
+
+# coefficient_matrix %>%
+#   ggplot(aes(x = subject_race, y = subject_age)) +
+#   geom_hex() +
+#   facet_geo(~ `state_abbreviation`)
+
+ggplot(data = coefficient_matrix) +
+  geom_point(mapping = aes(x = intercept, y = subject_age + intercept)) +
+  geom_abline(intercept = 0, slope = 1)
+
+ggplot(data = coefficient_matrix) +
+  geom_point(mapping = aes(x = intercept, y = white + intercept)) +
+  geom_abline(intercept = 0, slope = 1)
+
+ggplot(data = coefficient_matrix) +
+  geom_point(mapping = aes(x = intercept, y = subject_age)) 
+
+
+```
+
+- black is in the intercept, b_0
+- 
+
+
+not that important:
+```{r what is the difference between stops_city and stops_state?}
+
+ggplot(data = stops.city.sample) +
+  geom_bar(mapping = aes(x = city)) + coord_flip()
+
+ggplot(data = stops_state_sample) +
+  geom_bar(mapping = aes(x = city)) + coord_flip()
+
+
+stops_city_sample %>%
+  filter(geography == "Los Angeles") %>%
+  ggplot() +
+  geom_point(mapping = aes(x = subgeography, y = stop_rate))
+```
+
+
+```{r}
+
+full_coefficient_matrix <- read.csv("~/Documents/GitHub/Chang-DSRC2020/regressions/hi.csv")
+
+full_coefficient_matrix
+
+colnames(full_coefficient_matrix) <- c("x", "intercept", "subject_age", "white", "subject_age.white", "datasetnames", "state_abbreviation")
+
+
+full_coefficient_matrix %>%
+  ggplot() +
+  geom_point(mapping = aes(x = intercept, y = intercept + subject_age)) +
+  geom_abline(slope = 1, intercept = 0)
+
+full_coefficient_matrix %>%
+  ggplot() +
+  geom_point(mapping = aes(x = state_abbreviation, y = white + `subject_age.white`, color = state_abbreviation)) 
+
+```
+
+# Calculating actual probabilities
+
+The model predicts how several dependent variables (age, race, sex, light/day) affects the chances that a driver is searched during a traffic stop. We empirically calculate the probabilities as an addition to our logistic regression model here. 
+
+To match the model that we have as of May 1st, I only consider subject_age and subject_race (only including black and white) as predictor variables. I am finding just the empirical probabilities of search_conducted on subject_age and subject_race for CA oakland. This hopefully will be scalable to implement on our 23 other datasets!
+
+```{r}
+
+clean_data <- function(city_dataset){
+  # clean data 
+  if (typeof(city_dataset$search_conducted) == "character"){
+    
+    city_dataset <- city_dataset %>%
+      filter(subject_race == "black" | subject_race == "white") %>%
+      mutate(search_binary = case_when(search_conducted = "TRUE" ~ 1,
+                                       search_conducted = "FALSE" ~ 0))
+  } else {
+    # some datasets have search_conducted as already a dbl
+    city_dataset <- city_dataset %>%
+    filter(subject_race == "black" | subject_race == "white") %>%
+    mutate(search_binary = search_conducted)
+  }
+  
+  
+  city_dataset <- city_dataset %>% 
+    mutate(subject_race = as.factor(case_when(subject_race == "white"~"W", subject_race=="black"~"B")), subject_sex=as.factor(case_when(subject_sex=="male"~"M",subject_sex=="female"~"F")),
+           subject_age = as.numeric(subject_age))
+  
+  
+  return(city_dataset)
+}
+
+
+CAoak_empirical <- clean_data(CAoak) %>%
+  filter(!is.na(subject_age)) %>%
+  select(subject_age, subject_race, search_binary)
+
+CAoak_empirical <- CAoak_empirical %>%
+  
+  # count number of searchs conducted by predictor variables
+  group_by(subject_age, subject_race, search_binary) %>%
+  summarize(count = n()) %>%
+  
+  # search_binary becomes two columns
+  spread(key = search_binary, value = count) %>%
+  
+  # replace NA count values with 0
+  replace_na(list(`0` = 0, `1` = 0)) %>%
+
+  rename(stop_no_search = `0`,
+         search = `1`) %>%
+  
+  # mutate a total stops variable
+  mutate(total_stop = stop_no_search + search)
+
+CAoak_empirical
+
+# this did not work
+# https://business-science.github.io/tibbletime/articles/TT-03-rollify-for-rolling-analysis.html
+# rolling_mean <- rollify(mean, window = 2)
+
+# CAoak_empirical %>%
+#   filter(subject_race == "B") %>%
+#   arrange(subject_age) %>%
+#   group_by(subject_age, subject_race) %>%
+#   
+#   # this does not return anything!
+#   mutate(roll_search = rollsum(search, 2))
+#   
+#   ggplot() +
+#   geom_point(aes(x = subject_age, y = prob_search, color = subject_race))
+# ggsave("EMPIRICAL search_conducted in CAoak.png")
+
+```
+
+# calculate empirical probabilities with sql queries
+
+use SQL queries to get df with: each row is a dependent variable (race*age)
+problem is when df's aren't standardized
+
+initialize 4 column df:
+col1 = subject_age, col2 = subject_race, col3 = probability searched, col4 = dataset name
+
+go thru datasets
+1. download total stop counts by race and total search counts by race
+2. join the two datasets
+3. calculate (rolling) avg. probability of being searched
+4. create 4 column df
+5. cbind the df from #4 to the original initialized df
+
+
+# may 4th 2020 WORKKKKK
+
+```{r datasets of interest code}
+
+all_dataset_names <- as.list(DBI::dbGetQuery(con, "SHOW TABLES"))$Tables_in_traffic
+#all_dataset_names
+
+variables_of_interest <- c("subject_age", "subject_race", "subject_sex", "date", "search_conducted")
+
+relevant_datasets <- function(all_dataset_names, variables_of_interest){
+  
+  # create empty vector
+  datasets_of_interest <- c()
+    
+  for(city in all_dataset_names){
+    
+    # cancenate SQL query string
+    command <- paste("EXPLAIN", city, sep = " ")
+    field_vector <- unlist(as.list(DBI::dbGetQuery(con, command))$Field, 
+                           use.names = FALSE)
+    # print(field_vector)
+    
+    # of_interest_book is TRUE iff field_vector contains all the variables of interest
+    of_interest_bool <- setequal(intersect(field_vector, variables_of_interest),
+                                 variables_of_interest)
+    
+    # add dataset name to vector if of_interest_bool
+    if(of_interest_bool){
+      datasets_of_interest <- c(datasets_of_interest, city)
+    }
+  }
+  
+  return(datasets_of_interest)
+}
+datasets_of_interest <- relevant_datasets(all_dataset_names, variables_of_interest)
+datasets_of_interest <- datasets_of_interest[-c(1, 8, 20, 26, 30)]
+
+```
+
+```{r}
+
+# function whose input is a list of datasets
+# return one giant dataset
+
+p_search_conducted <- function(dataset_name){
+
+  # first, check the type of search_conducted
+  
+  dataset_str <- paste(dataset_name)
+  
+  explain_command_str <- paste("EXPLAIN", dataset_name, sep = " ")
+  
+  explain_df <- dbGetQuery(con, explain_command_str) %>%
+    filter(Field == "search_conducted") %>%
+    mutate(dataset = dataset_str) %>%
+    select(Field, Type, dataset)
+  
+  # note that explain_df[1, 2] is the entry that has the type of search_conducted
+  
+  # second, create SQL search strings based on type of search_conducted
+  
+  if (explain_df[1, 2] == "varchar(50)") {
+    
+      search_numerator_sql <- paste("SELECT subject_age, subject_race, 
+                                COUNT(*) as 'search_counts' FROM",
+                                dataset_str, 
+                                "WHERE (subject_race='black' 
+                                OR subject_race = 'white') 
+                                AND search_conducted = 'TRUE' 
+                                AND subject_age > 0 
+                                GROUP BY subject_age, subject_race", sep = " ")
+    
+  } else if (explain_df[1, 2] == "double") {
+    
+      search_numerator_sql <- paste("SELECT subject_age, subject_race, 
+                                COUNT(*) as 'search_counts' FROM",
+                                dataset_str, 
+                                "WHERE (subject_race='black' 
+                                OR subject_race = 'white') 
+                                AND search_conducted = '1' 
+                                AND subject_age > 0 
+                                GROUP BY subject_age, subject_race", sep = " ")
+      
+  }
+  
+  stops_denominator_sql <- paste("SELECT subject_age, subject_race, 
+                                 COUNT(*) as 'total_stop_counts' FROM", 
+                                 dataset_str, 
+                                 "WHERE (subject_race='black' 
+                                 OR subject_race = 'white') 
+                                 AND subject_age > 0 
+                                 GROUP BY subject_age, subject_race", sep = " ")
+  
+  # third, calculate % search_conducted per age in df thru query
+  
+  search_numerator <- dbGetQuery(con, search_numerator_sql)
+  
+  stops_denominator <- dbGetQuery(con, stops_denominator_sql)
+  
+  # fourth, combine results into one df 
+  
+  search_probability <- search_numerator %>%
+    right_join(stops_denominator, by = c("subject_race", "subject_age")) %>%
+    replace_na(list(search_counts = 0)) %>%
+    mutate(search_percent = search_counts / total_stop_counts,
+           
+           # create column for dataset name
+           dataset = dataset_str,
+           subject_age = as.numeric(subject_age))
+  
+  return(search_probability)
+
+}
+
+search_probs_list <- lapply(datasets_of_interest, p_search_conducted)
+
+search_probs_list
+
+combined_search_probs_list <- bind_rows(search_probs_list, .id = "column_label")
+
+combined_search_probs_list %>%
+  filter(dataset != "PApittsburgh") %>%
+  ggplot() +
+  geom_point(mapping = aes(x = subject_age, y = search_percent, color = subject_race), alpha = .4) +
+  facet_wrap(~ dataset) +
+  scale_y_continuous(limits = c(0, .4))
+ggsave("empirical prob search_conducted.png", width = 14, height = 10, units = "in")
+
+```
+
+```{r problem to show on tuesday with DB queries}
+
+# dplyr method of getting stop/search counts
+
+# CAoak_empirical <- clean_data(CAoak) %>%
+#   filter(!is.na(subject_age)) %>%
+#   select(subject_age, subject_race, search_binary)
+# 
+# CAoak_empirical <- CAoak_empirical %>%
+#   
+#   # count number of searchs conducted by predictor variables
+#   group_by(subject_age, subject_race, search_binary) %>%
+#   summarize(count = n()) %>%
+#   
+#   # search_binary becomes two columns
+#   spread(key = search_binary, value = count) %>%
+#   
+#   # replace NA count values with 0
+#   replace_na(list(`0` = 0, `1` = 0)) %>%
+# 
+#   rename(stop_no_search = `0`,
+#          search = `1`) %>%
+#   
+#   # mutate a total stops variable
+#   mutate(total_stop = stop_no_search + search)
+# 
+
+CAoak_empirical %>%
+  filter(subject_race == "B")
+
+dbGetQuery(con, 
+  "SELECT subject_age, subject_race, COUNT(*) as 'search_counts'
+  FROM CAoakland
+  WHERE subject_race='black'
+    AND search_conducted='random string here'
+  GROUP BY subject_age, subject_race")
+
+# when a random string is the condition for search_conducted, then i am returned with the counts of when search_conducted is false! 
+
+# if i change the query from = to != 'random string here' , i get the counts of when search_conducted is true
+
+dbGetQuery(con, 
+  "SELECT subject_age, subject_race, COUNT(*) as 'search_counts'
+  FROM CAoakland
+  WHERE subject_race='black'
+    AND search_conducted!='random string here'
+  GROUP BY subject_age, subject_race")
+
+```
+
+
+
+
