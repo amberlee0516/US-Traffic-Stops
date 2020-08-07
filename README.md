@@ -5,7 +5,10 @@ Data analysis of US traffic stops, using R.
 The final group report is available here: [https://hardin47.github.io/TrafficRC2020/Report/](https://hardin47.github.io/TrafficRC2020/Report/). Sections 5.1, 5.2.1, 6.5, and 1.1 were written by me; I also contributed to sections 2 and 3.3.
 
 This repository contains code for reproducing the visualizations from those sections and more.
-<insert graphics>
+
+Here is one such visualization that shows the race-specific age densities of stopped motorists for different datasets. More visualizations can be found in the final report or within the [data exploration folder](https://github.com/Amber-Patricia-Lee/US-Traffic-Stops/tree/master/2%20data%20exploration).
+
+![race-specific age densities of stopped motorists for different datasets](https://github.com/Amber-Patricia-Lee/US-Traffic-Stops/blob/master/2%20data%20exploration/Nationwide%20visualizations/racial%20age%20distribution%20without%20fill.png)
 
 ## Organization of repo
 
