@@ -1,0 +1,11 @@
+---
+title: "Approaching Missingness in Traffic Stop Data"
+author: "Amber Lee"
+date: "12/21/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+

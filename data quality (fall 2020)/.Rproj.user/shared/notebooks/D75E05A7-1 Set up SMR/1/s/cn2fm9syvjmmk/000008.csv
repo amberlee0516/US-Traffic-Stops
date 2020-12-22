@@ -1,0 +1,5 @@
+"0",""
+"0","data.frame(n = sapply(dataset_lst, function(x) dim(x)[1])) %>%"
+"0","  ggplot(aes(x = log(n))) +"
+"0","  geom_histogram(bins = 10)"
+"0",""

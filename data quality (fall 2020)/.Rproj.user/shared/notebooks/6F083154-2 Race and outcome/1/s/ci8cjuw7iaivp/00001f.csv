@@ -1,0 +1,3 @@
+"0",""
+"0","ggplot(data = racesc_df, aes(x = `missing race.sc`, y = black.sc)) +"
+"0","  default.point"
