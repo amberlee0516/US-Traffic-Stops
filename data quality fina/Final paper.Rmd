@@ -1,0 +1,1403 @@
+---
+title: "Exploring Missingness and its Implications in Traffic Stop Data "
+date: "December 2020"
+output: pdf_document
+header-includes:
+   - \usepackage{amsmath}
+bibliography: references.bib
+---
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+# Abstract
+As traffic stop data has become increasingly available, so has scholarship for analyzing the data for evidence of discriminatory policing. However, relatively few studies address missingness (NA values) in the data despite all the data being conditional on recording. This project develops a framework for studying missingness through the stop missingness rate (SMR) and presents exploratory data analysis of SMR on data from the Stanford Open Policing Project. Using the SMR, we observe trends in the SMR across variables date and day/night; such trends provide descriptive evidence of missingness as a confounding variable. We run several logistic regressions for data grouped by distinct missingness patterns and observe changes in the significance and magnitude of some race and sex variables. The possibility of missingness as a confounding variable calls for further research in its trends and impacts. 
+
+\newpage
+# Introduction
+
+Every year, more than 20 million traffic stops are conducted in the United States, representing the most common way in which drivers interact with the police [@davis2018contacts]. Unfortunately, not all traffic stops are conducted equally – in a 2019 survey by the Pew Research Center, 59% of Black men and 31% of Black women say that they have been unfairly stopped by the police [@anderson_2020]. The relationship between belonging to a minority race, such as Black, Latinx, and/or Asian Pacific Islander Desi American, and experiencing discriminatory policing is significant historically and in the present. Since the late 90’s, popular concern over racial profiling has led to federal and state mandates requiring the collection of traffic stop data [@russell2001racial]. 
+
+In tandem with the increasing availability of such data is the growing interdisciplinary scholarship analyzing such data for evidence of racial profiling [@baumgartner2017racial; @grogger2006testing; @pierson2020large; @smith2001racial]. For example, the Stanford Open Policing Project (HYPER LINK THIS https://openpolicing.stanford.edu/), whose data are the focus of this study, has several dozen datasets representing over 100 million separate traffic stops. Scholars have developed statistical methods to test for racial bias, although racial bias is challenging to prove because of the unknown baseline describing how traffic stops would be conducted in the absence of any bias.
+
+Much of the work on discriminatory policing has thus been focused on circumventing this unknown baseline. However, few studies mention how the results of their statistical analysis are impacted by the quality of traffic stop data or the number of observations excluded due to variables that are left unrecorded. For example, a model that uses **time** as a covariate will exclude traffic stop observations for which **time** is NA, or missing. If we assume that traffic stop data is the product of a myriad of human factors -- recording practices, state and department policy, human error, resource constraints, individual officer compliance, and racial bias -- we begin to distinguish between how a traffic stop is conducted and how it is recorded. By framing traffic stop data as dependent on *data collection practices* as opposed to the actual traffic stop, we study it limitations in describing the phenomenon of traffic stops and, as a result, racial profiling. 
+
+This project is about missingness in traffic stop data – unfortunately, not all traffic stops are *recorded* equally. Missingness refers to a variable that is left unrecorded; it is important because traffic stops that have unrecorded variables will be excluded by most statistical models models that test for racial bias. For example, if I were pulled over for a routine traffic stop but the officer failed to record my race, then a logistic regression modeling being searched as a function of driver race and other covariates would altogether exclude my traffic stop. 
+
+By framing traffic stop data as the by-product of a myriad of human factors and noting the necessary condition of full data coverage before modeling, we can pose the following questions: are there fundamental differences between the traffic stop observations with high and low missingness? Does missingness have a certain trend with respect to pertinent variables like race and time? Most importantly, are the missingness trends drastic enough to render two subsets of the same dataset incomparable? 
+
+With such guiding questions, we conduct a descriptive study exploring trends of missingness across the traffic stop data available through the Stanford Open Policing Project. The benefit of using such data is that this study is not limited to just one dataset; we analyze several dozen datasets to broadly explore differential missingness. This project is also concerned with how missingness could potentially impact the quality of analyses using such data -- we attempt to study if and how such trends introduce bias to statistical models. 
+
+This project incorporates both data exploration and modeling. We begin by developing a metric for missingness and use it to explore the data: while the data do not provide evidence that traffic data are recorded differentially depending on the race of the driver, we uncover one problematic example of interaction between the recording of the **race** variable and arrests being made in Seattle, Washington. Visualizations for the missingness by **date** of the year and the **time** of the day (represented by a **day/night** variable) demonstrate several trends of temporal missingness that we discuss. Finally, we identify datasets with distinct patterns of missingness and run the same logistic regression model for subsets of the datasets. This final portion of the study demonstrates how the recording of traffic stop data should be treated as a confounding variable and investigated more deeply. 
+
+# Literature review
+
+This exploratory analysis is motivated by Chanin and Welsh’s mixed method review of San Diego Police Department traffic stop data (2020). They both analyze missingness in traffic stop data and conduct officer interviews to study the quality of the data and officers’ attitude toward its collection. They point to the lack of meaningful consideration of data quality in existing traffic stop literature: of the 100 papers reviewed, the authors find only 19 papers that address missingness and recording rates (pp. 4). In a simple univariate analysis of the missingness by race, they find that stops involving drivers identified as either Black or Latinx were more likely to missing data (pp. 12). Summarizing the psychological, cultural, and organizational barriers to compliance, “an officer who does not see driver race as affecting their own decision-making... data collection only redounds to their detriment” (pp. 7). 
+
+The fundamental problem behind testing for discrimination is the lack of an appropriate benchmark which would relay how traffic stops are conducted in the absence of racial profiling [@ridgeway2010methods]. For example, one inappropriate but perhaps intuitive external benchmark is US Census data that details the racial makeup of the residents in a city. The assumption that the residents, drivers, and drivers committing traffic violations are identical and racially indistinguishable populations is problematic: not all residents drive, and especially for cities near highways, not all drivers are residents. Furthermore, comparing stop rates or search rates by race with the residential racial composition obscures a range of confounding variables (pp. 3-5). Demonstrating causality between the race of the driver with a punitive traffic stop outcome is thus difficult. The lack of a benchmark has motivated a range of statistical methods, which we briefly review here, heeding the mentions of data sourcing, quality, and missingness. 
+
+Traffic stop studies often use logistic regression to explain trends in post-stop outcomes, such as a **search** or an **arrest**, with covariates from the data such as driver **race**, the **time** of the stop, and variables for officer characteristics [@baumgartner2017racial; @smith2001racial]. @smith2001racial use data collected over a six-week period in Richmond, Virginia; the authors note that the data had a 64% response rate, meaning that 36% of traffic stops were unrecorded. However, whether or not the 64% of traffic stops that were recorded contained missing values is not explicitly addressed. The authors suggest caution given the “potentially different pool of traffic stops” of the 36% unrecorded traffic stop observations and recommend for future research to compare results (p. 9). They find evidence that being of minority race increases the probability that a driver receives a **warning** as opposed to a **citation**, which is a less punitive outcome.
+
+In contrast, @baumgartner2017racial compile 55 million traffic stop observations from approximately one dozen states in the United States; they find strong evidence of racial disparities in the post-stop outcome of **search**. The study includes a summary of the state traffic data policies and an appendix tallying the observations that are excluded due to missingness and other reasons. Unfortunately, the implication of missingness on the performance of the model is not discussed. 
+
+@ridgeway2006assessing point out the incompatibility of logistic regression with traffic stop studies and propose propensity score matching as an alternative method. As a generalized linear model, logistic regression estimates are sensitive to the model specification. Importantly, the traffic stops involving minority and white drivers can be quite different, so significant **race** coefficients could result from confounding variables. Estimating propensity scores for an Oakland, California dataset through generalized boosted models, the researchers find that Black drivers are treated equitably in terms of citations and consent searches. Missingness is not discussed in this study.
+
+Developed by @grogger2006testing, the veil of darkness (VOD) method is an instrumental variables approach that uses the natural variation of daylight (and darkness) resulting from daylight savings (DST) as an instrumental variable. The researchers address both missingness and recording rates: they omit about 1,000 observations due to missingness out of 7,600 original observations. While they do not mention the implications of missing data, they analyze the recording rate with respect to the VOD method –  as opposed to the standard logistic regression models, the VOD method is more robust for data with a sizable amount of unrecorded traffic stops because it depends on a weak assumption that race-specific reporting rates do not vary between daylight and darkness hours. 
+
+A recent analysis of over 20 million traffic stops applies the VOD test and threshold test @pierson2020large. The threshold test is an extension of the outcome test, incorporating both the rate of searches and rate of successful searches to determine if the police officers use a lower standard for searching POC drivers. The researchers find evidence of both racial profiling and preferentially searches for minority race drivers. Although the discussion primarily focuses on standardizing and improving the quality of traffic stop data collection, it does not mention how missingness plays a role in the analyses. 
+
+We extend the data quality review from @chanin2020examining in two ways: first, we examine the presence of missingness across multiple datasets as opposed to just one; second, we examine missingness trends across particular variables through the SMRs by **race**, **week**, and **day/night**. For other traffic stop researchers, this project provides an approach for how to explore and conceptualize missingness in one dataset or many. 
+
+
+# Data and Methods
+
+```{r}
+library(RMySQL)
+library(tidyverse)
+library(broom)
+library(lubridate)
+library(stringr)
+library(kableExtra)
+library(grid)
+library(gridExtra)
+library(patchwork)
+library(XML)
+library(RCurl)
+library(lutz)
+library(suncalc)
+```
+
+```{r connect to sql, include = FALSE}
+
+con <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "student", 
+  password = "insert password here :)", dbname = "insert database here :)")
+
+```
+
+```{r query n% sample of all datasets}
+
+dataset_names <- dbGetQuery(con, "SHOW TABLES")[[1]]
+
+# remove datasets with "_" in the name
+dataset_names <- dataset_names[str_detect(dataset_names, "_", negate = TRUE)]
+
+query_sample <- function(dataset_str, percent){
+  # input is dataset_str (str) with dataset name, and percent (dbl) for the random sample %
+  # output is the dataframe with a column added for the name of dataset and character NA's
+  # replaced with NA's
+  # global variable con is the SQL connection
+  
+  command <- paste("SELECT * FROM", dataset_str, "WHERE rand() <=", percent, 
+                   # in SQL, filter for vehicular stops
+                   " AND type = 'vehicular'",
+                   sep = " ")
+
+  df <- dbGetQuery(con, command) %>% mutate(dataset_name = dataset_str)
+  
+  # do not consider empty datasets
+  if (dim(df)[1] == 0){
+    return(NULL)
+  }
+  
+  # replace character NA's with NA
+  if (sum(is.na(df) == 0)){
+    
+    df[df == "NA"] = NA
+
+  }
+  
+  return(df %>% dplyr::select(-type))
+  
+}
+
+dataset_lst <- lapply(dataset_names, query_sample, 0.4)
+
+# will need to save to and load rdata when knitting so that the coefficient results are the same
+
+# remove empty datasets through logical indexing
+dataset_lst <- dataset_lst[sapply(dataset_lst, function(x) isTRUE(nrow(x) > 0))]
+
+```
+
+```{r remove empty columns}
+
+check_nonempty <- function(var, dataset, n_obsv){
+  # helper function for removing empty columns
+    
+  # the function environment has the parameter dataset
+  col_str <- paste("dataset$", var, sep = "")
+  col <- eval(parse(text = col_str))
+  isCollected <- sum(is.na(col)) < n_obsv
+  
+  return(isCollected)
+  
+}
+
+remove_empty_col <- function(dataset){
+  # a variable is 'collected' if there is a column for it in the dataset
+  # but being collected doesn't imply nonempty
+  
+  collected_var <- names(dataset)
+  n_obsv <- dim(dataset)[1]
+  
+  nonempty_bools <- unlist(lapply(collected_var, check_nonempty, dataset, n_obsv))
+  
+  # use logial indexing!
+  nonempty_var <- collected_var[nonempty_bools]
+  
+  ## in case i need this information
+  # empty_var <- collected_var[!nonempty_bools]
+  
+  return(dataset %>% dplyr::select({{ nonempty_var }}))
+  
+}
+
+dataset_lst <- lapply(dataset_lst, remove_empty_col)
+
+```
+
+```{r my filter for}
+
+myfilter_for <- function(dataset, var_vect, need_containment){
+  # if need_containment is true, then function only returns
+  # datasets containing ALL variables specified in var_vect
+  
+  # need_containment = TRUE results in more restrictive filtering
+  
+  dataset_var <- names(dataset)
+  intersection <- var_vect[var_vect %in% dataset_var]
+  
+  if (need_containment){
+    
+    if (length(intersection) == length(var_vect)) {
+      # embrace syntax from dplyr programming
+      return(dataset %>% dplyr::select({{ var_vect }}))
+    } else {
+      return(NULL)
+    }
+    
+  } else if (!need_containment){
+    
+    if (length(intersection > 0)) {
+      # embrace syntax from dplyr programming
+      return(dataset %>% dplyr::select({{ intersection }}))
+    } else{
+      return(NULL)
+    }
+    
+  }
+  
+}
+
+```
+
+```{r dataset containing}
+
+dataset_containing <- function(dataset, var_vect){
+  # var_vect is str with the variables we WANT
+  # returns the whole dataset
+  
+  if(var_vect %in% names(dataset)){
+    return(dataset)
+    
+  } else {
+    return(NULL)
+    
+  }
+  
+}
+
+```
+
+```{r search for specific dataset}
+
+find_dataset <- function(dataset, name_str){
+  
+  if(dim(dataset)[1] <= 1){
+    return(NULL)
+  }
+  
+  if(dataset$dataset_name[1] == name_str){
+    return(dataset)
+  }
+  
+}
+
+mysearch_dataset <- function(dataset_list, name_str){
+  
+  df <- lapply(dataset_list, find_dataset, name_str)
+  df <- df[sapply(df, function(x) isTRUE(nrow(x) > 0))]
+  
+  return(df[[1]])
+  
+}
+
+```
+
+```{r countMissing}
+
+check_missing <- function(n_threshold, df){
+  
+  col <- df %>% 
+    mutate("isMissing_{{ n_threshold }}" := case_when(missing >= n_threshold ~ TRUE,
+                                                TRUE ~ FALSE)) %>%
+    select(starts_with("isMissing"))
+
+  return(col)
+
+}
+
+countMissing <- function(dataset, n_threshold, exclude_bool, exclude_var){
+  # <n_threshold> is used to classify the observations with
+  # at least n_threshold missing values as completely missing
+  
+  # <exclude_var> is str specifying which variables we don't count for NA's
+
+  n_var <- dim(dataset)[2]
+  
+  if (exclude_bool){
+    missing <- list(missing = rowSums(is.na(dataset %>% select(-all_of(exclude_var)))))
+    
+  } else {
+    missing <- list(missing = rowSums(is.na(dataset)))
+    
+  }
+  
+  dataset <- dataset %>%
+    bind_cols(list(missing), .id = NULL) %>% 
+    mutate(stop_missing_rate = missing/n_var)
+  
+  dataset <- dataset %>%
+    # check_missing operates on dataset with missingness already counted
+    bind_cols(lapply(1:n_threshold, check_missing, dataset))
+ 
+  return(as.data.frame(dataset))
+
+}
+
+```
+
+```{r top fifteen freq variables}
+
+# 15 most frequently recorded variables
+freq_var <- data.frame("var" = unlist(lapply(dataset_lst, function(dataset) names(dataset)))) %>%
+  group_by(var) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  # drop type (either pedestrian or vehicular)
+  filter(var != "type" & str_detect(var, "row", negate = TRUE)) %>%
+  # n = 16 because dataset_name is a variable
+  slice_max(count, n = 16) %>%
+  pull(var)
+
+```
+
+## Defining Missingness
+
+We define missingness as occurring when a variable is left unrecorded in a dataset. If a variable takes on the value NA, then we deem it to be missing. In contrast to @chanin2020examining, we refer to an unrecorded variable as “missing” rather than an “error” in order to prevent confusion regarding whether an “error” is due to variables not recorded or recorded incorrectly.
+
+To quantify missingness, we define the stop missingness rate (SMR) to be the percent of all variables that are unrecorded for a single traffic stop, represented by one row of the dataset. A higher SMR means that a larger percentage of the information is not recorded or equivalently, that less information is available.
+
+$$ \mathrm{SMR} = \dfrac{\text{number of unrecorded variables}}{\text{total number of variables}}$$
+
+\begin{align}
+\text{dataset SMR} &= \dfrac{1}{T} \sum_{i = 1}^T \mathrm{SMR}_i & 
+T &= \text{total number of traffic stops}
+\end{align}
+
+As an explanatory example, we consider an abridged traffic stop dataset from Oakland, California that records four variables (Table 1). For a given row, if an officer were to leave one of the variables blank, then the SMR for that row would be 25%. The SMR for an entire dataset can be found by taking the average of the SMR over the traffic stops. We chose the mean as opposed to other measures of central tendency because taking the average row-wise SMR (meaning the average of the SMR per traffic stop) is equivalent to the percentage of missing values for the whole dataset, which is an important aspect for the dataset SMR to capture. With this definition, we can see how the dataset SMR for Table 1 is 50%.
+
+```{r}
+CAoak_baby <- data.frame(`race` = c("black", "hispanic", "hispanic", 
+                                    "black", "white"),
+                         `age` = c(NA, NA, NA, 65, NA),
+                         `date` = c("2014-09-17", "2016-05-24", "2014-06-07",
+                                    "2017-02-10", "2014-03-01"),
+                         `outcome` = c(NA, "citation", "citation", "citation",
+                                       "citation"),
+                         `SMR` = c(0.5, 0.25, 0.25, 0, 0.25))
+
+CAoak_baby %>%
+  kbl(booktabs = T, caption = "SMR for Oakland, CA") %>%
+  kable_styling(latex_options = "hold_position")
+
+```
+
+The dataset SMR is not the only missingness metric that can describe a dataset’s data coverage. We can also determine the missingness across the levels of a categorical variable. The SMR by a variable of interest enables comparison across datasets of the missingness trends of that variable. We provide a general definition of SMR by a variable first before walking through an example of SMR by race.
+
+Let $V$ denote a variable in a dataset that takes on $k \in \mathbb{Z}$ distinct values. Let $V_j$ denote the set of observations for which $V = j$ for $j = {1, 2, ..., k}$. For an observation $i$ such that $V = j$, we say that $i$ is an element of $V_j$. Then, let $T = \sum_{i = 1}^k n_j$ be the total number of observations in the dataset, where $n_j$ denotes the number of observations for in $V_j$.  The follow equation gives the SMR by $V$ for each value of $j = {1, 2, ..., k}$: 
+
+\begin{align}
+\text{SMR by } V &= \dfrac{1}{n_j} \sum_{i \in V_j} \mathrm{SMR}_i 
+\end{align}
+
+The SMR by race, for example, is the average SMR of observations belonging to each racial group. Let $R$ denote the variable for race with $k$ distinct values. Let $R_j$ be the set of $n_j$ traffic stops involving individuals who are recorded as race $j$. The SMR by race is defined as: 
+
+\begin{align}
+\text{SMR by race } &= \dfrac{1}{n_j} \sum_{i \in R_j} \mathrm{SMR}_i 
+\end{align}
+
+Notably, the calculation of SMR by race will result in an SMR for drivers of missing race, whom we refer to as NA-race drivers. An SMR for NA-race drivers is calculated because NA race is indeed a level of driver **race**. For this reason, we do not include **race** in the calculation of SMR by race so as not to artificially inflate the race SMR for missing race drivers. Continuing our example with the abridged Oakland data, Table 2 details the SMR for different racial groups. 
+
+```{r}
+
+CAoak_baby %>% 
+  group_by(race) %>%
+  summarize(`SMR by race` = mean(SMR)) %>%
+  kbl(booktabs = T, caption = "SMR by race for Oakland, CA") %>%
+  kable_styling(latex_options = "hold_position")
+
+```
+
+The SMR by **race**, **week**, and **day/night** for a dataset can be determined only if the dataset includes records of each of those respective variables. A filtering step to isolate comparable datasets is thus required prior to computing SMRs. Moreover, we encourage a stricter pre-processing step before computing any SMR to enable fairer and more accurate comparisons among datasets. 
+
+We caution against comparing the quality of data collection by directly comparing the dataset SMR or race SMRs across datasets. Each dataset has a unique set of variables, with some cities or state patroles recording more variables than others. An average SMR for a dataset containing three variables cannot be compared with an average SMR containing three dozen variables.
+
+In addition, traffic stop data from Los Angeles, California are collected with only x variables, of which driver **race** is not included. In comparison with the Oakland data collected with y total variables including driver race, the Los Angeles data cannot be used to study racial profiling, despite having a close to zero average SMR. A low SMR for the Los Angeles data does not necessarily indicate that the dataset has greater coverage and potential for analysis compared to a dataset that collects more variables, albeit to some degree of missingness.
+
+In an effort to more fairly compare SMRs across datasets, we pre-process the data to remove uncommon variables, like **vehicle type** and **officer age** so that the SMR is determined only from the frequently recorded variables, which we explain in the next section. The average SMRs for datasets that are more similar can thus be more fairly compared with each other.
+
+To summarize, the SMR by **race** can be calculated such that it is more fairly comparable across datasets. First, we filter for datasets that contain traffic stops that record **race**. Next, we remove uncommon variables in each dataset, selecting only for frequently recorded variables. Lastly, we exclude race from the numerator of NA values in (3) to calculate the SMR by **race**. This method can be repeated for SMR by **week** and **day/night**.
+
+For the remainder of this paper, all mentions of dataset SMR or SMR by a certain variable have been computed using the process detailed above; that is, all SMR statistics have been calculated after filtering and pre-processing the datasets. 
+
+## About the Data
+
+The data used here come from the Stanford Open Policing Project which includes information on vehicular traffic stops from 1999 to 2020; the most frequently recorded variables relating to driver demographic are **race**, **sex**, and **age**; those relating to situational information are **time** of day, **date**, **location** (and **latitude** and **longitude**), and **outcome of the stop**. A “dataset” refers to the data collected by a municipal police department or a statewide patrol agency. We study a total of 66 datasets, all of which contain at least one of the aforementioned frequently recorded variables. Figure 1 provides an overview of how many observations make up these datasets, and Figure 2 relays the distribution of SMR for each dataset. 
+
+```{r obsv and SMR distribution}
+
+p_n_hist <- data.frame(n = sapply(dataset_lst, function(x) dim(x)[1])) %>%
+  rename(`Number of observations in a 50% sample` = n) %>%
+  ggplot(aes(x = log(`Number of observations in a 50% sample`))) +
+  geom_histogram(bins = 10) +
+  labs(title = "Figure 1: Number of observations \nin traffic stop datasets",
+       caption = "\nA histogram for the log number of observations in 66 \ndatasets. The y-axis counts the number of datasets.") +
+  scale_y_continuous("Count") +
+  scale_x_continuous("log(n)")
+
+ggplot_datasetSMR <- function(dataset_lst, var_vect){
+  
+  # only select the frequent variables to better compare!
+  error_lst <- lapply(dataset_lst, myfilter_for, var_vect, FALSE)
+  
+  summarizeAvgSMR <- function(dataset){
+    
+    dataset <- dataset %>%
+      group_by(dataset_name) %>%
+      summarize(avg_SMR = mean(stop_missing_rate), .groups = "drop")
+    
+  }
+  
+  error_lst <- lapply(error_lst, countMissing, 1, FALSE)
+  error_lst <- lapply(error_lst, summarizeAvgSMR)
+  
+  p <- bind_rows(error_lst) %>% 
+    rename(`SMR` = avg_SMR) %>%
+    ggplot(aes(x = `SMR`)) + 
+    geom_histogram(bins = 7) +
+    labs(title = "Figure 2: Dataset SMR of traffic \nstop datasets",
+         caption = "\nA histogram of the dataset SMR for 66 datasets.\nThe y-axis counts the number of datasets.") +
+    scale_y_continuous("Count")
+  
+  return(p)
+  
+}
+
+p_smr_hist <- ggplot_datasetSMR(dataset_lst, freq_var)
+
+p_n_hist | p_smr_hist
+
+```
+
+Of the total 66 datasets analyzed in this study, 32 of the datasets record **search** conducted (which indicates whether or not a search was conducted), and 33 record **arrest** made. As the dependent variable for most traffic stop studies, the **search** and **arrest** variables are also relevant outcomes for this project because they represent harsh stop outcomes. The driver characteristic and outcome variables can be understood as the minimum covariates needed to run a logistic regression for **search** or **arrest**. 
+
+To contextualize the datasets, we present in Table 3 a survey of state legislation requiring the collection of traffic stop data. This overview is helpful in understanding how the data are collected and the variables that are deemed important from lawmakers’ points of view. 
+
+```{r table for state legislation}
+data.frame(State = c("CA", "NC", "NY", "TN", "WA"),
+           `Outlawing racial profiling` = c("Yes", "No", "Yes", "Yes", "Yes"),
+           `Use officer perception` = c("Yes", "Does not mention",  "Yes",
+                                        "Yes", "Does not mention"),
+           `Bill number` = c("AB 953", "GS 143B", "A03949", "HB 2167", "RCW 43.101.410")) %>%
+  kbl(booktabs = T, caption = "State Mandates for Traffic Stop Data Collection") %>%
+  kable_styling(latex_options = "hold_position")
+
+```
+
+One notable trend of these policies is that usually the **race**, **gender** identity, and **age** is recorded based on officers’ perception. The Stanford Open Policing Project’s own analysis of its data points out this detail @pierson2020large. We can see evidence of this in how the age density plots of North Carolina datasets spike at multiples of five in Figure 3, but we can also see evidence of officer perceptions in the extensive exclusion of non-binary gender identities and mixed-race identities and the common inclusion of the Hispanic, which is an ethnicity, as a level for race. Another important feature of such state mandates are the different variables required for each state. We are able to compare data quality and missingness across datasets with different variables through the pre-processing step noted in the previous section, but datasets that collect neither **search** nor **arrest** are outside the scope of most statistical models testing for discriminatory policing. 
+
+```{r NC density plots}
+
+NC_lst <- dataset_lst[sapply(dataset_lst, 
+                             function(x) str_detect(x$dataset_name[1], "NC"))]
+
+
+NC_lst <- lapply(NC_lst, function(x) x %>% 
+                   select(subject_age, dataset_name) %>%
+                   mutate(subject_age = as.numeric(subject_age)))
+
+bind_rows(NC_lst) %>% 
+  ggplot(aes(x = subject_age)) +
+  geom_density(aes(color = dataset_name)) +
+  facet_wrap(~ dataset_name)  +
+  theme(legend.position = "none") +
+  scale_x_continuous("Age") +
+  scale_y_continuous("Density") +
+  labs(title = "Figure 3: Age density for North Carolina datasets",
+       caption = "\nDensity plots of driver age for the North Carolina datasets. Each plot consists of more than 130,000 observations.")
+
+```
+
+## Methods
+
+The primary method we use to explore trends in missingness is visualization; in particular we consider the SMRs by **race**, **week**, and **day/night**, along with the **search** and **arrest** rates by **race**. Due to the large amount of data, the SMR statistics and visualizations are created with a 30% random sample of the data. The data are stored in a mySQL database, from which we query, wrangle, and visualize the data entirely in R. The complete set of visualization and the code for my work can be found on my Github: [https://github.com/Amber-Patricia-Lee/US-Traffic-Stops/](https://github.com/Amber-Patricia-Lee/US-Traffic-Stops/).
+
+Through data visualization, we explore how SMR varies with another variable on both individual dataset and aggregate of all datasets levels. Since the aggregate plots combine information from all datasets into one visualization while the individual dataset plots do not, this paper presents a few selected individual-level plots; however, all the visualizations and code are Github. This project thus takes quite a descriptive approach towards investing missingness on a dataset and across datasets scope. The visualizing strategies developed here can be taken as a framework for exploring and detecting trends in missingness.
+
+To see if and how missingness affects the relationship between race and punitive stop outcomes, we use logistic regression. Despite its limitations and the difficulty of interpreting log-odds, logistic regression on the post-stop outcome is one of the most commonly used models. Furthermore, the purpose of this study is to investigate missingness as a confounding variable, not to provide a test for proving racial profiling. We use a model similar to that in @baumgartner2017racial. 
+
+Logistic regression is a statistical model that relates a set of covariates with a binary dependent variable (such as **search** vs. no search or **arrest** vs. no arrest) using the logit function. The estimated coefficients describe how the logarithm of the odds (log-odds) of the response variable changes when increasing the respective covariate. Our model is as follows:
+
+$$
+\mathrm{outcome} \sim \mathrm{race} + \mathrm{sex} +\mathrm{age}
++ \mathrm{day/night*} + \text{day of the week}
+$$
+
+where **age** is the only continuous variable; the other variables are factors. We mark day/night with an asterisk because it will not always be used as a predictor variable.
+
+To see how missingness influences the regression results, we first identify a dataset with distinct patterns of missingness. Then, we divide that dataset into groups so that the observations in each group exhibit the same missingness pattern. Then we run the same model over the distinct groups and also the combined data.
+
+The purpose of these regressions is not to test for discrimination or racial profiling; rather, we pose the question of how missingness may potentially interfere with the models that employ data with differential missingness. 
+
+# Results
+
+## Race
+
+We begin with investigating how missingness varies by **race**. A total of 57 datasets out of 66 record the **race** of the driver; these 57 datasets were used to plot the distributions of SMR by race and plot minority race SMR against white SMR. 
+
+```{r smr by race dist}
+
+makeDF.SMRByRace <- function(dataset_lst){
+  # input: list of datasets
+  
+  #helper function
+  summarizeSMRByRace <- function(dataset){
+    # input: <dataset> with missingness counted
+    
+    dataset <- dataset %>%
+      ungroup() %>%
+      group_by(subject_race, dataset_name) %>%
+      summarize(avg_SMR = mean(stop_missing_rate), .groups = "drop") %>%
+      mutate(labelled_race = case_when(subject_race == "black" ~ "Black",
+                                      subject_race == "hispanic" ~ "Hispanic",
+                                      subject_race == "asian/pacific islander" 
+                                      ~ "Asian/Pacific Islander",
+                                      subject_race == "white" ~ "White",
+                                      subject_race == "unknown" ~ "Unknown",
+                                      subject_race == "other" ~ "Other")) %>%
+      rename(`SMR` = avg_SMR) %>%
+      select(labelled_race, `SMR`, dataset_name)
+    
+    return(dataset)
+    
+  }
+  
+  race_lst <- lapply(dataset_lst, dataset_containing, "subject_race")
+  race_lst <- race_lst[sapply(race_lst, function(x) isTRUE(nrow(x) > 0))]
+  
+  race_lst <- lapply(race_lst, countMissing, 1, TRUE, "subject_race")
+  
+  # filter out and count erorrs
+  race_df <- bind_rows(lapply(race_lst, summarizeSMRByRace)) 
+  # %>%
+  #   spread(key = isRecorded, value = avg_SMR)
+  
+  return(race_df)
+  
+}
+
+smrRace <- makeDF.SMRByRace(dataset_lst)
+
+ggplot(data = smrRace, aes(x = `SMR`, fill = labelled_race)) + 
+  geom_histogram(bins = 10) +
+  facet_wrap(~ labelled_race, nrow = 2) +
+  theme(legend.position = "none") +
+  scale_y_continuous("Count") +
+  labs(title = "Figure 4: SMR by race",
+       caption = "\nHistograms of the SMR by race for 57 datasets. The y-axis counts the number of datasets, and the scaling \nfor the x- and y-axes is the same for all histograms.")
+
+```
+
+```{r prep smr race scatter plot}
+
+p_asian_white <- smrRace %>%
+  spread(key = labelled_race, value = `SMR`) %>%
+  ggplot(aes(x = White, y = `Asian/Pacific Islander`)) +
+  geom_point(size = 0.47) +
+  geom_abline() +
+  scale_x_continuous("White", limits = c(0, 0.5)) +
+  scale_y_continuous("Asian/Pacific Islander", limits = c(0, 0.5)) +
+  theme(aspect.ratio = 1)
+
+p_black_white <- smrRace %>%
+  spread(key = labelled_race, value = `SMR`) %>%
+  ggplot(aes(x = White, y = Black)) +
+  geom_point(size = 0.47) +
+  geom_abline() +
+  scale_x_continuous("White", limits = c(0, 0.5)) +
+  scale_y_continuous("Black", limits = c(0, 0.5)) +
+  theme(aspect.ratio = 1) 
+
+p_hispanic_white <- smrRace %>%
+  spread(key = labelled_race, value = `SMR`) %>%
+  ggplot(aes(x = White, y = Hispanic)) +
+  geom_point(size = 0.47) +
+  geom_abline() +
+  scale_x_continuous("White", limits = c(0, 0.5)) +
+  scale_y_continuous("Hispanic", limits = c(0, 0.5)) +
+  theme(aspect.ratio = 1)
+
+```
+
+```{r viz smr race plots}
+
+(p_asian_white | p_black_white | p_hispanic_white) + 
+  plot_annotation(title = "Figure 5: SMR for minority race and white drivers across datasets",
+                  caption = "\nScatterplots of SMR by race for 57 datasets, with minority race (APIDA, Black, and Hispanic) \nSMR plotted against white SMR. Each point represents one dataset.")
+
+```
+
+As seen in Figure 4, the distribution of SMR by **race** is comparable with one another, with the exception of drivers whose **race** is not recorded. The distribution likely differs for NA-race drivers because of the fewer data points that make up the SMR calculation; additionally, some datasets have no missing recordings of **race**, so the SMR for NA-race drivers does not exist in those datasets. 
+
+In Figure 5, we see that SMRs are quite comparable with each other across **race**, implying that the data collection quality for drivers identified as APIDA, Black, and Hispanic are comparable to that for white drivers. Thus, we do not find different SMR trends between drivers identified as a minority race and as white. While @chanin2020examining find that in San Diego, California, drivers identified to minority race (Black and Latinx) are more likely to have missing data, Figure 5 suggests that the overall occurrence of missing data is comparable among race groups. 
+
+## Race and Outcome
+
+Although the previous analysis did not provide evidence of a trend between missingness and certain **race** values, we continue how officers record traffic stop data involving NA-race drivers. This is relevant because NA-race drivers are altogether excluded from most racial profiling studies.
+
+This section concerns the stop **outcome** of drivers by **race**. The outcomes of interest are **search** and **arrest** because they are more punitive than **warning** and **citation**. Also, the decision to search a driver involves a degree of officer discretion, which can be susceptible to bias. We cannot discern how NA-race drivers actually experience traffic stops and if they are subjected to harsher post-stop outcomes than white or minority race drivers due to confounding variables. However, we use the available data and descriptive statistics to understand the rates at which drivers of different races are either **search**ed or **arrest**ed. 
+
+We do not use SMR as a predictor variable in modeling **search** or **arrest** rates; SMR is used as a tool for understanding changes in models across **time**, **race**, and **day/night**. The search rate by **race** is the number of stops involving drivers from a race group who are searched divided by the total number of stops involving drivers of that race group. The arrest rate is calculated similarly. 
+
+Both search and arrest rates are conditional on the driver being involved in a stop – a 10% **search** rate for white drivers should be interpreted as 10% of white drivers who are pulled over and recorded experience a search, which is distinct from the interpretation that 10% of all white drivers are searched.
+
+To compare the post-stop recorded outcomes of drivers of different races, we compute the **search** and **arrest** rates by the different race levels. Then, we plot the Black and white search rates against the NA-race search rate; we do the same for **arrest**. 
+
+```{r prep outcomes data}
+
+outcome_clean <- function(dataset, str_outcome){
+  
+    if(typeof(dataset[[str_outcome]]) == "character"){
+      sym_outcome = sym(str_outcome)
+      
+      dataset <- dataset %>%
+        mutate(!!sym_outcome := case_when(!!sym_outcome == "FALSE" ~ 0,
+                                          !!sym_outcome == "TRUE" ~ 1,
+                                          !!sym_outcome == "0" ~ 0,
+                                          !!sym_outcome == "1" ~ 1))
+    }
+  
+  return(dataset)
+  
+}
+
+makeDF.RaceOutcome <- function(str_outcome, dataset_lst){
+  
+  sym_outcome <- sym(str_outcome)
+
+  # 1. filter for 3 variables
+  outcome_lst <- lapply(dataset_lst, myfilter_for, 
+                        c("dataset_name", "subject_race", str_outcome), TRUE)
+  outcome_lst <- outcome_lst[sapply(outcome_lst, function(x) isTRUE(nrow(x) > 0 ))]
+  
+  # 2. clean
+  outcome_lst <- lapply(outcome_lst, outcome_clean, str_outcome)
+  
+  # 3. make df
+  outcome_df <- data.frame(bind_rows(outcome_lst))
+  
+  # 4. numerator by counting total stops per outcome level and race group
+  outcome_counts <- outcome_df %>% 
+    group_by(dataset_name, subject_race, !!sym_outcome) %>%
+    summarize(count = n(), .groups = "drop") %>%
+    spread(key = !!sym_outcome, value = count)
+  
+  # 5. denominators and other relevant statistics
+  
+  # 5a. total stops per data set
+  total_stops <- outcome_df %>% 
+    group_by(dataset_name) %>% 
+    summarize(total_stops = n(), .groups = "drop")
+  
+  # 5b. total stops per racial group
+  total_stops_race <- outcome_df %>% 
+    group_by(dataset_name, subject_race) %>% 
+    summarize(total_stops_race = n(), .groups = "drop")
+  
+  # 5c. total stops NA (race and outcome)
+  total_na_race <- total_stops_race %>% 
+    filter(is.na(subject_race)) %>%
+    rename(total_na_race = total_stops_race) %>%
+    select(-subject_race)
+  
+  total_na_outcome <- outcome_counts %>% 
+    group_by(dataset_name) %>%
+    summarize(total_na_outcome = sum(`<NA>`, na.rm = TRUE), .groups = "drop")
+  
+  # 6. calculate rates
+  all_rates <- outcome_counts %>%
+    left_join(total_stops_race, by = c("dataset_name", "subject_race")) %>%
+    # outcome == 1 denotes that the outcome happened
+    # ex: search_conducted == 1 means that a search was conducted
+    mutate(outcome_rate = `1` / total_stops_race,
+           NA_outcome_rate = `<NA>` / total_stops_race) %>%
+    select(dataset_name, subject_race, outcome_rate, NA_outcome_rate)
+  
+  outcome_rate <- all_rates %>%
+    select(-NA_outcome_rate) %>%
+    spread(key = subject_race, value = outcome_rate) %>%
+    rename(`missing race` = `<NA>`)
+  
+  outcomeNA_rate <- all_rates %>%
+    select(-outcome_rate) %>%
+    spread(key = subject_race, value = NA_outcome_rate) %>%
+    rename(`missing race` = `<NA>`)
+  
+  # 7b. join
+  outcome_race_df <- outcome_rate %>%
+    left_join(outcomeNA_rate, by = "dataset_name", suffix = c("", "NA")) %>%
+    left_join(total_stops, by = "dataset_name") %>%
+    left_join(total_na_race, by = "dataset_name") %>%
+    mutate(total_na_race = ifelse(is.na(total_na_race), 0, total_na_race)) %>%
+    left_join(total_na_outcome, by = "dataset_name") %>%
+    mutate(outcome = paste(unlist(str_split(str_outcome, "_")), collapse = " "))
+  
+  return(outcome_race_df)
+  
+}
+
+raceoutcomes_lst <- lapply(c("search_conducted", "arrest_made"), 
+                           makeDF.RaceOutcome, dataset_lst)
+```
+
+```{r plot outcome rates against NA race}
+
+default.point <- list(geom_point(aes(size = `Total NA-race drivers`/`Total stops`, 
+                                     color = log(`Total stops`))),
+  geom_abline(),
+  scale_x_continuous(limits = c(0, 0.4)),
+  scale_y_continuous(limits = c(0, 0.4)),
+  theme(aspect.ratio = 0.9,
+        legend.key.height = unit(0.4, 'cm'), #change legend key height
+        legend.key.width = unit(0.4, 'cm'),
+        legend.title = element_text(size=9), #change legend title font size
+        legend.text = element_text(size=9))) #change legend text font size))
+
+bind_rows(raceoutcomes_lst) %>%
+  select(outcome, black, white, `missing race`, total_stops, total_na_race) %>%
+  gather(key = "race", value = "SMR", 2:3) %>%
+  rename(`SMR for NA race drivers` = `missing race`,
+         `Total stops` = total_stops, 
+         `Total NA-race drivers` = total_na_race) %>%
+  mutate(outcome = factor(outcome, levels = c("search conducted",
+                                              "arrest made"))) %>%
+  ggplot(aes(x = `SMR for NA race drivers`, y = `SMR`)) +
+  default.point +
+  facet_grid(outcome ~ race) +
+  labs(subtitle = " ") +  
+  theme(strip.placement = "outside") +
+  plot_annotation(title = "Figure 6: Post-stop outcome rates for Black, white, and NA-race drivers",
+                  caption = "\nScatterplots for the search and arrest rates of Black and white drivers compared to NA-race drivers. \nThe search rate plots represents 32 datasets, while the arrest rate plots represent 33.")
+
+
+```
+
+We read the scatterplots in Figure 6 from left to right, comparing the search rate relationship between Black and white drivers (on the y-axis) with the search rate of NA-race drivers, on the x-axis. The points in the right column (representing the search rate of white drivers) look more closely bunched to the y = x line than the points in the left column (that represent the search rate for Black drivers). The Black search rates that are above the y = x line provide descriptive evidence that drivers who are stopped and identified as Black experience search and arrest rates higher than do NA-race drivers. 
+
+Next, we discuss the size of the scatterplots that relay the percentage of traffic stops that involve NA-race drivers. Consider the traffic stop data from Seattle, Washington that is represented by the largest point in the **arrest** scatterplots.  The large point provides evidence of interaction between the *recording* of **race** and *outcome* that a stop results in an **arrest**. Table 4 presents the full consideration of the data including a summarized count of the arrests and non-arrests by race for a 30% random sample of the data. Out of the drivers who have been arrested, just over 0.3% of the individuals have **race** recorded as Black or white; in contrast, a much lower percentage of drivers (0.04%) are identified as white, and an even lower percentage of drivers (0.02%) are identified as Black. While the actual counts are quite small, the differences across both **arrest** and **race** are important and worth understanding prior to any analyses associated with **race** on this dataset.
+
+```{r washington table}
+
+mysearch_dataset(dataset_lst, "WAseattle") %>%
+  group_by(arrest_made, subject_race) %>% 
+  summarize(Count = n()) %>%
+  spread(key = arrest_made, value = Count, fill = 0) %>%
+  mutate(labelled_race = case_when(subject_race == "black" ~ "Black",
+                                   subject_race == "hispanic" ~ "Hispanic",
+                                   subject_race == "asian/pacific islander"  ~ 
+                                     "Asian/Pacific Islander",
+                                   subject_race == "white" ~ "White",
+                                   subject_race == "unknown" ~ "Unknown")) %>%
+  select(labelled_race, `0`, `1`) %>%
+  rename(`Driver race` = labelled_race, 
+         `No arrest` = `0`,
+         `Arrest` = `1`) %>%
+  kbl(booktabs = T, caption = "Driver Race and Arrests in Seattle, Washington") %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+The number of NA-race drivers who are not arrested is orders of magnitude larger than the other counts; the denominator of the arrest rate is thus biased by the missingness, unable to accurately represent the amount of non-arrests in each race group. As a result, the arrest rates by race do not indicate the true percentage of stopped drivers of a certain race who are arrested. Missingness by race and outcome is important because a large presence of NA-race drivers can introduce bias into the outcome rates. Traffic stop data in Seattle, Washington provide a cautionary example of how informative trends regarding race cannot be captured if the *recording* of race is linked to an outcome variable. 
+
+## Week
+
+Next, we address how the weekly SMR varies over the years. To compute SMR by **week**, we first categorize each traffic stop into a one-week period based on its recorded **date.** Then, we apply the necessary filtering and selecting steps before applying equation (2) to calculate the average SMR by **week** for each dataset. We plot the weekly SMR value against the **date**. All of the 66 datasets in our analysis record **date** so we generate 66 visualizations; the plots shown in Figure 7 were selected to illustrate the common trends observed throughout all the plots, the complete set of which can all be found on my Github.
+
+```{r prepare date df}
+
+date_datasets <- c("IAstatewide", "KSwichita", "KYlouisville",
+                   "MNsaintpaul", "SCstatewide", "TNnashville")
+
+date_lst <- dataset_lst[sapply(dataset_lst, function(x) x$dataset_name[1] %in% date_datasets)]
+date_lst <- lapply(date_lst, myfilter_for, freq_var, FALSE)
+
+# filtering OUT datasets that don't record date
+date_lst <- lapply(date_lst, dataset_containing, "date")
+date_lst <- date_lst[sapply(date_lst, function(x) isTRUE(nrow(x) > 0))]
+
+# helper function
+summarizeMissingTemporally <- function(dataset){
+  
+  dataset <- dataset %>%
+    mutate(nice_date = ymd(date),
+           nice_week = ymd(cut(nice_date, "week"))) %>%
+    select(dataset_name, nice_week, stop_missing_rate) %>%
+    ungroup() %>%
+    group_by(nice_week, dataset_name) %>%
+    summarize(avg_SMR = mean(stop_missing_rate), stop_count = n(), .groups = "drop")
+
+  return(dataset)
+  
+}
+
+makeDF.SMRByDate <- function(date_list){
+  
+  # count NA
+  date_list <- lapply(date_list, countMissing, 1, TRUE, "date")
+  
+  # summarize
+  date_list <- lapply(date_list, summarizeMissingTemporally)
+  
+  state_df <- data.frame(state = state.abb, region = state.region)
+  
+  southern_str <- state_df$state[state_df$region == "South"]
+  west_str <- state_df$state[state_df$region == "West"]
+  northeast_str <- state_df$state[state_df$region == "Northeast"]
+  northcent_str <- state_df$state[state_df$region == "North Central"]
+  
+  nvar_per_dataset <- data.frame(dataset_name = sapply(dataset_lst, 
+                                             function(dataset) dataset$dataset_name[1]),
+                       n_var = sapply(dataset_lst, 
+                                      function(dataset) length(names(dataset))))
+  
+  # make df just include date and SMR
+  date_df <- bind_rows(date_list) %>%
+    mutate(state_abb = substr(dataset_name, 1, 2),
+           region = case_when(state_abb %in% southern_str ~ "South",
+                              state_abb %in% west_str ~ "West",
+                              state_abb %in% northeast_str ~ "Northeast",
+                              state_abb %in% northcent_str ~ "North Central",
+                              TRUE ~ "No regioned (error!)")) %>%
+    #something off about this left join
+    left_join(nvar_per_dataset, by = "dataset_name")
+  
+  return(date_df)
+  
+}
+
+date_df <- makeDF.SMRByDate(date_lst)
+
+```
+
+```{r visualize date}
+
+ggplot_date <- function(date_dataset, region_or_dataset){
+  
+  plot_region <- function(name){
+    
+    p <- date_dataset %>%
+      filter(region == name) %>%
+      ggplot() +
+      geom_point(aes(x = nice_week, y = avg_SMR, 
+                     color = dataset_name), alpha = .8) +
+      ggtitle(paste(name, "weekly SMR over time"))
+    
+    # ggsave(paste(name, "weekly SMR.png"), p)
+    return(p)
+    
+  }
+  
+  plot_dataset <- function(name){
+    
+    p <- date_dataset %>%
+      filter(dataset_name == name) %>%
+      ggplot() +
+      geom_point(aes(x = nice_week, y = avg_SMR), alpha = .8, size = 0.47) +
+      labs(subtitle = paste(name)) +
+      theme(aspect.ratio = 2/3, axis.title.x = element_blank(), 
+            axis.title.y = element_blank())
+
+    # ggsave(paste(name, "weekly SMR.png"), p)
+    return(p)
+    
+  }
+  
+  if (region_or_dataset == "region"){
+    region_names <- date_dataset %>% distinct(region) %>% pull(region)
+    plots <- lapply(region_names, plot_region)
+    
+  } else if (region_or_dataset == "dataset"){
+    dataset_names <- date_dataset %>% distinct(dataset_name) %>% pull(dataset_name)
+    plots <- lapply(dataset_names, plot_dataset)
+    
+  } else {return(stop("typo in region_or_dataset"))}
+
+  return(plots)
+  
+}
+
+# from https://github.com/thomasp85/patchwork/issues/43 @mingsu
+add_global_label <- function(pwobj, Xlab = NULL, Ylab = NULL, Xgap = 0.03, Ygap = 0.03, ...) {
+    ylabgrob <- patchwork::plot_spacer()
+    if (!is.null(Ylab)) {
+        ylabgrob <- ggplot() +
+            geom_text(aes(x = 0.5, y = 0.5), label = Ylab, angle = 90, ...) +
+            theme_void()
+    }
+    if (!is.null(Xlab)) {
+        xlabgrob <- ggplot() +
+            geom_text(aes(x = .5, y = .5), label = Xlab, ...) +
+            theme_void()
+    }
+    if (!is.null(Ylab) & is.null(Xlab)) {
+        return((ylabgrob + patchworkGrob(pwobj)) + 
+            patchwork::plot_layout(widths = 100 * c(Ygap, 1 - Ygap)))
+    }
+    if (is.null(Ylab) & !is.null(Xlab)) {
+        return((ylabgrob + pwobj) + 
+            (xlabgrob) +
+            patchwork::plot_layout(heights = 100 * c(1 - Xgap, Xgap),
+                                   widths = c(0, 100),
+                                   design = "
+                                   AB
+                                   CC
+                                   "
+            ))
+    }
+    if (!is.null(Ylab) & !is.null(Xlab)) {
+        return((ylabgrob + pwobj) + 
+            (xlabgrob) +
+            patchwork::plot_layout(heights = 100 * c(1 - Xgap, Xgap),
+                                   widths = 100 * c(Ygap, 1 - Ygap),
+                                   design = "
+                                   AB
+                                   CC
+                                   "
+            ))
+    }
+    return(pwobj)
+}
+
+
+date_plots <- ggplot_date(date_df, "dataset")
+
+(((date_plots[[1]] + scale_x_date(date_breaks = "3 years",
+                                          date_labels = "%Y")) + 
+    (date_plots[[2]] + scale_x_date(date_breaks = "4 years",
+                                          date_labels = "%Y")) + 
+    date_plots[[3]]) /
+    (date_plots[[4]] + date_plots[[5]] + date_plots[[6]])) %>%
+  add_global_label(Ylab = "SMR", Xlab = "Year", Xgap = 0.1) +
+  plot_annotation(title = "Figure 7: Weekly SMR of Selected Datasets",
+                  caption = "Scatterplots of the weekly SMR plotted by year. Note that the scaling of the y-axes \nis different so the details for each trend are clear.") +
+  plot_layout(guides = "collect")
+
+
+```
+
+We first discuss the plots for Iowa statewide and Nashville, Tennessee, which have roughly constant weekly SMRs with a few level changes. Such level changes are fairly common, with increasing or decreasing jumps identified in 15 of the 66 scatterplots. The trend of constant SMR plots with distinct level changes is possibly indicative of changes in department policy regarding variable collection: if the level drops, then the department has likely adopted a new variable to record, while a level increase might reflect a phasing out of one or more traffic stop variables. For example, the jump in 2014 for Nashville, Tennessee reflects the increasing missingness in **latitude** and **longitude**. Abrupt changes in weekly SMR is evidence that the recording of data can change with respect to the **date** of the year. 
+
+We also observe how the variance of the weekly SMR through time is different across datasets and, occasionally, different within a dataset. Regardless of the functional relationship between time of **year** and the weekly SMR, the data collection practices of some departments are more regular than others. Within a level set, the SMR values calculated for the Iowa dataset are more spread out than the SMR values in Nashville, TN; the plots for Wichita, Kansas and Louisville, Kentucky have similar spread (note the different axes labeling). Traffic data from Saint Paul, Minnesota has low variability until approximately 2005, then it begins to increase.  Such a display of SMR value is quite rare across the datasets we examine, but we include this plot to convey the idea that some datasets exhibit high spread, while others exhibit low spread.  Understanding the missingness associated with a particular dataset can be paramount to correct model assessments.
+
+Consider the suite of plots given in Figure 7: they demonstrate that the trends of missingness (as measured by SMR) can be functional, varied, and difficult to interpret. For example, both linear and concave relationships that can be observed in the total 66 plots. The plots for Wichita and South Carolina statewide provide examples of concave relationships that sometimes change through the years. The unique, identifiable, but difficult to explain pattern in South Carolina is rare, but we include the plot to demonstrate how unique these functional relationships can be. In contrast, the plot for Louisville, Kentucky presents a common and relatively mild form of the relationship between weekly SMR and **date.**
+
+Understanding the impact of missingness in a dataset is a difficult task, but it is incredibly important for any model interpretation. The implication of a functional form existing between SMR by **week** and **date** of the year is that the data, which are conditional on their collection, may not be comparable even within the same dataset. Furthermore, missingness as a confounding variable can further obscure methods to demonstrate racial profiling. 
+
+One final trend to report is not visualized in Figure 7, but it is still indicative of the importance of understanding data missingness and recording practices.  Some departments periodically update their traffic data and enter the date of the traffic stop as the date that the data are entered. For example, the Oregon statewide dataset that spans five years has a weekly SMR plot with only five points (i.e., five recorded values on the x-axis) because the department updates its traffic data annually. This finding is immediately relevant for models involving variables like **time**, **date**, and **sunset/sunrise** times as covariates. For such models, the Oregon data would be inappropriate to use. 
+
+## Day and night
+
+For the last section of our exploratory data analysis, we extend on the weekly SMR by considering how missingness varies between stops occurring in the day compared to stops occurring at night. To categorize traffic stops as occurring during the day or night, we find the **latitude** and vlongitude** coordinates for each dataset; then, we find the sunrise and sunset times for each date of the particular location. To simplify the comparison, we exclude stops which occur in the times between dawn and sunrise and between sunset and dusk.
+
+Rather than calculate SMR by**day/night**, which would result in only two statistics per dataset, we determine the monthly SMR for all stops occurring during the day for that month; we apply the same method for nighttime stops. After categorizing and filtering for traffic stops during the day and night, we filter the datasets, select the relevant variables, and apply equation (2) to calculate the monthly SMR for **day** and **night** stops.
+
+We visualize the resulting statistics by plotting the monthly SMR throughout the year, distinguishing between daytime and nighttime SMRs. These visualizations relate three variables: SMR by **month**, the **year**, and **day/night**, so we can glean the relationships between each of the three variables; we refer to these as **day/night** SMR plots for brevity. 66 datasets record date and the time of the stop, so we generate 66 total plots. The plots shown in Figure 8 were selected to summarize common trends and extend from those in Figure 7; the remaining plots can be viewed through my Github.
+
+
+```{r find coordinates}
+
+time_datasets <- date_datasets[date_datasets != "SCstatewide"]
+
+time_lst <- date_lst[sapply(date_lst, function(x) x$dataset_name[1] %in% time_datasets)]
+
+makeDF.Coordinates <- function(dataset_lst){
+  
+  pull_location_str <- function(dataset, for_URL){
+    # for_URL is a boolean indicating if pulling the location_str
+    # for a URL or not
+    
+    name <- dataset$dataset_name[1]
+    
+    if(for_URL){
+        
+      # extract lowecase letters of name
+      check <- str_extract(name, "[a-z]+")
+      state <- state.name[grep(str_sub(name, 1,2), state.abb)]
+      
+      if(check == "statewide" | check == "state"){
+        
+        url_name <- gsub(" ", "+", state.name[grep(str_sub(name, 1,2), state.abb)])
+        # return full name of the state
+        
+        return(url_name)
+        
+      } else {
+        
+        url_name <- gsub(" ", "+", paste(check, state))
+        return(url_name)
+          
+      }
+    
+    }
+  
+  # otherwise just turn dataset_name, as it is formatted in the dataset
+  return(name)
+  
+}
+
+  location_str_URL <- lapply(time_lst, pull_location_str, TRUE)
+  
+  # scraper function to fetch coordinates from city string
+  get_coordinates <- function(city){
+  
+    # city is a string
+  
+    url_str <- paste("http://www.google.com/search?q=latitude+and+longitude+of+",
+               city, sep = "")
+  
+    doc <- htmlParse(getURL(url_str))
+  
+    # class = BNeawe iBp4i AP7Wnd retrieves the coordinates
+    coordinates <- xpathSApply(doc, "//div[@class='BNeawe iBp4i AP7Wnd']", xmlValue)[1]
+  
+    clean_coordinates <- str_split(coordinates, ", ")[[1]]
+  
+    # use regular expressions to extract lat and lng
+    lat <- as.numeric(str_extract(clean_coordinates[1], "\\d+\\.*\\d*"))
+    # multiple long by -1 b/c...?
+    long <- -1*as.numeric(str_extract(clean_coordinates[2], "\\d+\\.*\\d*"))
+  
+    final_coordinates <- c(lat, long)
+    return(final_coordinates)
+  
+  }
+  
+  # find lat/long information using get_coordinates function and relevant_dataset_names df
+  coordinates_lst <- lapply(location_str_URL, get_coordinates)
+  
+  # bind lat/long information with relevant_dataset_names
+  coordinates_df <- data.table::transpose(data.frame(coordinates_lst)) %>%
+    # join with dataset_names
+    bind_cols(data.table::transpose(data.frame(lapply(time_lst, pull_location_str, FALSE)))) %>%
+    rename(lat = V1...1, lng = V2, dataset_name = V1...3)
+  
+  return(coordinates_df)
+  
+}
+
+coordinates_df <- makeDF.Coordinates(time_lst)
+
+```
+
+```{r add daynight variable}
+
+# helper function for add_day_night, returns minute of the day
+time_to_minute <- function(time){
+  # time can be str
+  lubridate::hour(hms(time)) * 60 + lubridate::minute(hms(time))
+}
+
+# calculate sunset, sunrise, dusk, and dawn times
+oursunriseset <- function(latitude, longitude, date, timezone, direction) {
+  
+  date.lat.long <- data.frame(date = date, lat = latitude, lon = longitude)
+  
+  if(direction == "sunset"){
+    # call getSunlightTimes from the lutz package
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$sunset
+    
+  } else if(direction == "sunrise"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$sunri 
+    
+  } else if (direction == "dusk"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$dusk
+    
+  } else if (direction == "dawn"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$dawn
+  }
+}
+
+add_day_night <- function(dataset, coord_df){
+    
+  dataset_name_str <- dataset$dataset_name[1]
+
+  # filter for lat/long information of dataset
+  coord_df <- coord_df %>% filter(dataset_name == dataset_name_str)
+  
+  # intialize lat, long, tz information
+  lat <- coord_df$lat[1]
+  lng <- coord_df$lng[1]
+  time_zone <- lutz::tz_lookup_coords(lat, lng, warn = F)
+  
+  # use lubridate to clean date type in dataset
+  dataset <- dataset %>%
+    filter(!is.na(time) & !is.na(date)) %>%
+    mutate(date = as.Date(ymd(date, tz = time_zone)),
+           stop_minute = time_to_minute(time))
+  
+  # df for dawn, sunrise, sunset, and dusk times for distinct dates
+  sunriseset_times <- dataset %>% 
+    filter(!is.na(date)) %>%
+    distinct(date) %>% 
+    mutate(dawn_hms = format(oursunriseset(lat, lng, date, 
+                                           time_zone, direction = "dawn"), 
+                             "%H:%M:%S"),
+           sunrise_hms = format(oursunriseset(lat, lng, date, 
+                                              time_zone, direction = "sunrise"),
+                               "%H:%M:%S"),
+           sunset_hms = format(oursunriseset(lat, lng, date, 
+                                             time_zone, direction = "sunset"), 
+                               "%H:%M:%S"),
+           dusk_hms = format(oursunriseset(lat, lng, date, 
+                                           time_zone, direction = "dusk"), 
+                             "%H:%M:%S"),
+           dawn = time_to_minute(dawn_hms),
+           sunrise = time_to_minute(sunrise_hms),
+           sunset = time_to_minute(sunset_hms),
+           dusk = time_to_minute(dusk_hms))
+
+  # filter dataset for stops occurring during window_of_stop 
+  dataset <- dataset %>% 
+    left_join(sunriseset_times, by = "date") %>%
+    mutate(day_night = case_when(stop_minute >= dawn & 
+                                   stop_minute < sunrise ~ "twilight morning",
+                                 stop_minute >= sunrise & 
+                                   stop_minute < sunset ~ "day",
+                                 stop_minute >= sunset & 
+                                   stop_minute < dusk ~ "twilight evening",
+                                 stop_minute >= dusk | 
+                                   stop_minute < dawn ~ "night",
+                                 TRUE ~ "missing"))
+  
+}
+
+sunriseset_lst <- lapply(time_lst, add_day_night, coordinates_df)
+
+```
+
+```{r make sunriseset df}
+
+summarizeSMRDayNight <- function(dataset){
+    # calculate average SMR per month for day and night
+    # find_diff_bool indicates if we want to SPREAD the dataset
+    
+    dataset <- dataset %>% 
+      mutate(nice_month = ymd(cut(ymd(date), "month"))) %>%
+      group_by(dataset_name, nice_month, day_night) %>%
+      # filter out stops occurring during twilight
+      filter(str_detect(day_night, "twilight", negate = TRUE)) %>%
+      summarize(avg_SMR = mean(stop_missing_rate), .groups = "drop")
+    
+    return(dataset)
+    
+  }
+
+makeDF.SMRTime <- function(sunriseset_list, find_diff_bool){
+  
+  # filter away the helper columns like stop_minute and dusk_hms
+  sunriseset_list <- lapply(sunriseset_list, myfilter_for, c(freq_var, "day_night"), FALSE)
+  
+  # count NA
+  sunriseset_list <- lapply(sunriseset_list, countMissing, 1, TRUE,
+                            c("time", "day_night", "date"))
+  
+  # summarize SMR per month by day and night
+  sunriseset_list <- lapply(sunriseset_list, summarizeSMRDayNight)
+  
+  sunriseset_df <- bind_rows(sunriseset_list)
+  
+  if (find_diff_bool){
+    
+    sunriseset_df <- sunriseset_df %>%
+      spread(key = day_night, value = avg_SMR) %>%
+      mutate(diff_SMR = day - night)
+    
+  }
+  
+  return(sunriseset_df)
+  
+}
+
+sunriseset_df <- makeDF.SMRTime(sunriseset_lst, FALSE)
+
+```
+
+```{r visualize day night smr}
+
+ggplot_sunriseset <- function(sunriseset_dataset, variable_str){
+  
+  plot_avg <- function(name){
+    
+    p <- sunriseset_dataset %>%
+      filter(dataset_name == name) %>%
+      ggplot(aes(x = nice_month, y = avg_SMR)) +
+      geom_point(size = 0.47) +
+      facet_wrap(~ day_night) +
+      labs(subtitle = paste(name)) +
+      theme(axis.title.x = element_blank(), 
+            axis.title.y = element_blank(), aspect.ratio = 4/5)
+    
+    # ggsave(paste(name, "SMR by day and night.png"), p)
+    
+    return(p)
+    
+  }
+  
+  plot_diff <- function(name){
+    
+    p <- sunriseset_dataset %>%
+      filter(dataset_name == name) %>%
+      ggplot(aes(x = nice_month, y = diff_SMR)) +
+      geom_point() +
+      ggtitle(paste("Difference in SMR of", name, 
+                    "Between Day and Night per month")) +
+      labs(x = "Date", y = "Difference in SMR")
+    
+    # ggsave(paste(name, "SMR day and night.png"), p)
+    
+    return(p)
+    
+  }
+  
+  dataset_name <- sunriseset_dataset %>% distinct(dataset_name) %>% pull(dataset_name)
+  
+  if (variable_str == "avg_SMR"){
+    plots <- lapply(dataset_name, plot_avg)
+    
+  } else if (variable_str == "diff_SMR") {
+    plots <- lapply(dataset_name, plot_diff)
+    
+  } else {stop("typo in variable_str!")}
+
+  return(plots)
+  
+}
+
+sunriseset_plots <- ggplot_sunriseset(sunriseset_df, "avg_SMR")
+
+(((sunriseset_plots[[1]] + scale_x_date(date_breaks = "3 years",
+                                        date_labels = "%Y")) + 
+    (sunriseset_plots[[2]] + scale_x_date(date_breaks = "4 years",
+                                          date_labels = "%Y"))) /
+    ((sunriseset_plots[[3]] + scale_x_date(date_breaks = "2 years",
+                                          date_labels = "%Y")) +
+       sunriseset_plots[[4]])) %>%
+  add_global_label(Ylab = "SMR", Xlab = "Year", Xgap = .1) +
+  plot_annotation(title = "Figure 8: Monthly SMR in Daytime and Nighttime Stops for Selected Datasets",
+                  caption = "Scatterplots of the monthly SMR for stops occurring during the day and night, plotted by year. \nNote that the scaling of the y-axes are different for ease of interpretation.") +
+  plot_layout(guides = "collect")
+
+```
+
+Across all of the datasets (not shown here), the most common difference between the **day** and **night** monthly SMRs is simply no difference. The **day/night** plot for Nashville, Tennessee (not displayed here) looks like two side-by-side copies of the Nashville plot of Figure 7. Day/night SMR plots that are similar imply that recording practices between stops occurring during the night and day are similar and not a cause for concern. However, there are some datasets where the missingness across day and night vary in systematic ways that could impact model interpretability. 
+
+Level changes are a common trend and can be seen in Wichita, Kansas and Louisville, Kentucky (see Figure 8). Distinct differences in the monthly SMR from **day** to **night** can occur regardless of the underlying functional form of the missingness, whether it is a constant error (as in Louisville) or more complex (as in Wichita). The functional form doesn’t change between day and night; rather, the day and night SMR are vertical shifts of one another. We also note that  the level change is not always a change so that the SMR during the nighttime is higher, as one may intuitively expect. 
+
+We can also identify complicated functional relationships between missingness, **date** of the year, and **day/night**. The Iowa statewide and Saint Paul, Minnesota plots in Figure 8 illustrate two different functional forms of monthly SMR observed between day and night. In Iowa, the quantity of missing variables changes between day and night even within the same year. In Saint Paul, Minnesota, the variability and shape of the missingness between **day** and **night** are noticeably different. 
+
+The previous three plots are indicative of the benefit of disaggregating the missingness measures. The most telling example is that of Louisville, Kentucky: the plot in Figure 7 presents a fairly mild, potentially concave relationship between missingness and the year. Only after plotting the monthly SMR by day and night in Figure 8 can we notice the fairly stark difference between the recording of daytime and nighttime stops. Furthermore, the level changes in the Iowa plot in Figure 7 are complicated by how missingness is different between day and night, even during the same year. Lastly, the disaggregated missingness in Saint Paul, Minnesota in Figure 8 sheds light on the erratic trends found in Figure 7. Although we do not know why the shape and spread of monthly SMR is different between night and day, we see how aggregating those conflicting trends results in what seems to be a sudden introduction of highly variable missingness after 2005. 
+
+These trends in differential missingness between day and night imply that in some cases, traffic stops are recorded differently. Whether or not this obscures trends in racial profiling or biases the results of models that use the data is unclear, but we find evidence that the available information to analyze can be different based on the time, week, and outcome of the stop.  
+
+The exploration presented thus so far provides evidence of some trends in missingness. Furthermore, until such trends are more fully explained and understood, the question of if and to what extent this missingness results in bias for the models relying on the data remains unanswered. We identify missingness as another potential confounding variable.
+
+## Logistic Regression
+
+While we find descriptive evidence of some patterns of missingness from Figures 3-8, we have not yet considered if differential SMR can impact statistical models predicting post-stop outcomes like **search**. Trends in missingness can impact model results for a variety of reasons: missingness can altogether exclude a non-random group of observations from the model; missingness can also interact with the recording of other pertinent variables. In this section, we investigate how missingness can affect the significance, magnitude, and possibly the sign of the estimated coefficients from a logistic regression. 
+
+We choose datasets that have distinct patterns of missingness and run the same minimal regression on the observations from each missingness pattern. We select the Nashville and Louisville data because, as found in Figures 5 and 6, missingness behaves in only two patterns within each dataset. In the Nashville data, missingness remains constant at approximately 0% before 2014 and jumps to about 1% after 2014; In the Louisville data, missingness remains relatively constant for day and night stops, at approximately 2.5% and 7%, respectively. 
+
+The minimal logistic regression that we run is for **search** and uses the predictor variables **race**, **age**, **sex**, and **day** of the week. For the Nashville, Tennessee model, we also include the predictor variable **day/night**. For each dataset, the same logistic model is run three times: once for each subset of the data with a distinct pattern of missingness, only the day stops and a third time on the combined dataset. The purpose of the minimal model is not to find evidence of racial profiling but rather to explore if and the extent to which missingness is a confounding variable.
+
+The model is run on a 30% random sample of the Nashville, Tennessee dataset representing over 1.2 million traffic stops. Due to the smaller amount of the data for Louisvillege, Kentucky, we use the entire dataset consisting of about 110,000 observations to run the logistic regressions. The baseline group in the model is a female driver identified as Asian/Pacific Islander. We present the estimated logarithm of the odds ratios (log-odds) for only the predictor variables relating to driver demographics. 
+
+```{r reconnect to sql, include = FALSE}
+
+# in case connection is lost
+con <- dbConnect(
+  MySQL(), host = "traffic.st47s.com", user = "student", 
+  password = "insert password here :)", dbname = "insert database here :)")
+
+```
+
+```{r }
+
+KYfull <- DBI::dbGetQuery(con, "SELECT * FROM KYlouisville WHERE TYPE = 'vehicular'")
+KYfull <- KYfull %>% 
+  mutate(dataset_name = "KYlouisville") %>%
+  select(time, date, subject_race, subject_sex, subject_age, search_conducted, dataset_name)
+KYfull <- add_day_night(KYfull, coordinates_df)
+
+logreg_lst <- list(mysearch_dataset(sunriseset_lst, "TNnashville"),
+                   KYfull)
+
+logreg_lst <- lapply(logreg_lst, outcome_clean, "search_conducted")
+
+log_prep <- function(dataset){
+  
+  dataset <- dataset %>%
+    mutate(day_week = as.factor(wday(ymd(date))),
+           subject_age = as.numeric(subject_age),
+           subject_race = ifelse(is.na(subject_race), "NA", subject_race),
+           subject_sex = ifelse(is.na(subject_sex), "NA", subject_sex),
+           subject_race = as.factor(subject_race),
+           subject_sex = as.factor(subject_sex))
+  
+  return(dataset)
+  
+}
+
+logreg_lst <- lapply(logreg_lst, log_prep)
+```
+
+```{r }
+# at 2014-02-10, the SMR goes from 0% to 1%
+# lat/lng become less recorded
+
+TNpre <- logreg_lst[[1]] %>%
+  filter(date < ymd("2014-02-10"))
+
+TNpost <- logreg_lst[[1]] %>%
+  filter(date > ymd("2014-02-10"))
+
+```
+
+```{r }
+fit_searchTNpre <- glm(search_conducted ~ subject_race + subject_age + subject_sex + 
+                         day_week + day_night, data = TNpre, family = "binomial")
+
+fit_searchTNpost <- glm(search_conducted ~ subject_race + subject_age + subject_sex + 
+                         day_week + day_night, data = TNpost, family = "binomial")
+
+fit_searchTNall <- glm(search_conducted ~ subject_race + subject_age + subject_sex + 
+                         day_week + day_night, data = logreg_lst[[1]], family = "binomial")
+
+```
+
+```{r }
+
+TN_output <- tidy(fit_searchTNpre) %>%
+  left_join(tidy(fit_searchTNpost), by = "term", suffix = c(".1", ".2")) %>%
+  left_join(tidy(fit_searchTNall), by = "term") %>%
+  mutate(`Before 2014` = paste(sprintf('%.3f', round(estimate.1, digits = 3)), 
+                               " (", sprintf('%.3f',p.value.1), ")", sep = ""),
+         `After 2014` = paste(sprintf('%.3f', round(estimate.2, digits = 3)), 
+                              " (", sprintf('%.3f',p.value.2), ")", sep = ""),
+         `Combined` = paste(sprintf('%.3f', round(estimate, digits = 3)),
+                            " (", sprintf('%.3f',p.value), ")", sep = "")) %>%
+  bind_cols(" " = c("Intercept", "Black", "Hispanic", "Missing Race (NA)",
+              "Other Race", "Unknown", "White", "Age", "Male", "Missing Sex (NA)",
+              "", "", "", "", "", "", "", "", "")) %>%
+  select(` `, `Before 2014`, `After 2014`, `Combined`) %>%
+  head(10) 
+
+NAlogodds <- c(substr(TN_output$`Before 2014`[10], 1, 5), 
+               substr(TN_output$`After 2014`[10],1, 5),
+               substr(TN_output$`Combined`[10], 1, 5))
+               
+NAlogodds <- as.numeric(NAlogodds)
+NAprob <- round(exp(NAlogodds)/(1+exp(NAlogodds)), digits = 3)*10
+
+TN_output %>%
+  kbl(booktabs = T, caption = "Logistic Regression of Searches in Nashville, Tennessee by Before and After 2014") %>%
+  kable_styling(latex_options = "hold_position")
+
+```
+
+In comparing the before and after 2014 coefficients in Table 5, most of the coefficients are quite similar. However, the log-odds for drivers identified as “Other Race” does change: it is insignificant before 2014, significant after 2014, and insignificant in 2014. The other main difference among the three models is the magnitude of the log-odds for drivers whose sex is not recorded (“Missing Sex (NA)”). Statistically significant log-odds of `r NAlogodds[1]`, `r NAlogodds[2]`, and `r NAlogodds[3]` translate into the probabilities `r paste(NAprob[1], "%" , sep = "")`, `r paste(NAprob[2], "%" , sep = "")`, and `r paste(NAprob[3], "%" , sep = "")`. Compared to the baseline group, NA-sex drivers before 2014 were `r paste(NAprob[1], "%" , sep = "")` more likely to be searched; the probability drops to `r paste(NAprob[2], "%" , sep = "")` after 2014. 
+
+The question of whether these changes in search behavior are due to policing practices, driving behavior, or data collection and missingness is ambiguous. We thus see how missingness is another confounding variable that should be considered during model interpretation.
+
+```{r }
+
+KYday <- logreg_lst[[2]] %>% filter(day_night == "day")
+KYnight <- logreg_lst[[2]] %>% filter(day_night == "night")
+
+```
+
+```{r }
+
+fit_searchKYday <- glm(search_conducted ~ subject_race + subject_age + subject_sex + 
+                         day_week, data = KYday, family = "binomial")
+
+fit_searchKYnight <- glm(search_conducted ~ subject_race + subject_age + subject_sex + 
+                         day_week, data = KYnight, family = "binomial")
+
+fit_searchKYall <- glm(search_conducted ~ subject_race + subject_age + subject_sex + 
+                         day_week, data = logreg_lst[[2]], family = "binomial")
+
+```
+
+```{r }
+
+tidy(fit_searchKYday) %>%
+  left_join(tidy(fit_searchKYnight), by = "term", suffix = c(".1", ".2")) %>%
+  left_join(tidy(fit_searchKYall), by = "term") %>%
+  mutate(`Day` = paste(sprintf('%.3f', round(estimate.1, digits = 3)), 
+                       " (", sprintf('%.3f',p.value.1), ")", sep = ""),
+         `Night` = paste(sprintf('%.3f', round(estimate.2, digits = 3)), 
+                         " (", sprintf('%.3f',p.value.2), ")", sep = ""),
+         `Combined` = paste(sprintf('%.3f', round(estimate, digits = 3)), 
+                            " (", sprintf('%.3f',p.value), ")", sep = "")) %>%
+  bind_cols(" " = c("Intercept", "Black", "Hispanic", "Missing Race (NA)",
+              "Other Race", "Unknown", "White", "Age", "Male", "Missing Sex (NA)",
+              "", "", "", "", "")) %>%
+  select(` `, `Day`, `Night`, `Combined`) %>%
+  mutate(`Night` = case_when(`Night` == "NA (NA)" ~ " ",
+                           TRUE ~ `Night`)) %>%
+  head(10) %>%
+  kbl(booktabs = T, caption = "Logistic Regression of Searches in Louisville, Kentucky by Day/Night") %>%
+  kable_styling(latex_options = "hold_position")
+
+```
+
+We notice more differences in the estimated log-odds among the day, night, and combined models in Table 6. The coefficient for Hispanic is significant at 1.080 for daytime stops, insignificant for nighttimes stops, and is significant again in the combined model, albeit at a lower value at 0.732. A similar trend is seen for drivers identified as “Other Race” and “Unknown”; the coefficients are insignificant for the night model, but significant in the day and combined model. For these three levels of **race**, the magnitude of the log-odds is greatest for daytime stops and lower in the combined model. Lastly, the coefficient for drivers identified as male exhibits a similar pattern of being significant in the day and combined variables, with the log-odds becoming quite negative (but insignificant) for nighttime stops. 
+
+As with the models run for Nashville, Tennessee, the models for Louisville, Kentucky cannot be interpreted to make any conclusions regarding police bias towards race or gender; driving behavior of different races and genders; or the impact of missingness. Whether due to missingness or another confounding variable, the reason for the changes in significance and the magnitude of the log-odds cannot be isolated. 
+
+The three-part models run on traffic stop data from Nashville, Tennessee and Louisville, Kentucky neither prove nor disprove the impact of missingness on models that test for racial profiling. Missingness as a trend and as a confounding variable should thus be treated with caution and incorporated in model interpretation. These datasets and regressions demonstrate the need for further research into the more complex functional forms of missingness, especially those that do not result in distinct groups of observations that have the same missingness pattern. Furthermore, we can apply the SMR framework towards more sophisticated statistical tests to see if and how missingness affects results. 
+
+# Discussion
+
+This project explores patterns in missingness by defining the SMR statistic and visualizing it by different variables across several dozen datasets. By analyzing missingness from different angles, we see how traffic stop data potentially contain another confounding variable: the recording practices of state patrol agencies and municipal departments.
+
+We do not find evidence of large-scale recording practices changing by the race of the driver; however, we find one instance in Seattle, Washington of interaction between the stop outcome arrest and the recording of race. Arrest rates by race groups are thus biased due to the absence of non-arrested drivers' race information. With regards to time of the year and time of the day, we find several different trends reflecting changes in department collection practices. Weekly SMR plots demonstrate trends such as constant SMR with distinct jumps; different degrees of variability; and complex functional forms like concavity. The day/night plots usually relay no difference between the missingness in stops recorded during the day and night, but a few datasets have level changes and functional forms that are different. Until we have a stronger understanding of what these missingness trends entail and why they occur, the impact of differential SMR on models that use traffic stop data will not be known.
+
+To begin understanding the impact of differential SMR, we run logistic regressions on the two datasets Nashville, Tennessee and Louisville, Kentucky. Both of the datasets distinct patterns of missingness. Separating those patterns of missingness and running the same logistic regression on them, we find slight differences in the significance and sign of coefficients for certain values of driver **race** (unknown race, other race) and **sex** (male, NA sex). The log-odds of **race** and **sex** variables (Hispanic, “Other Race,” “Unknown Race”, and male) from the regressions on Louisville, Kentucky also change. We notice that the magnitude of the log-odds for the day model are greater than those in the combined model. The reason for the slight differences is, again, ambiguous -- it could result from the variable by which we divide the dataset, missingness, some other confounding variable, or a combination of these.
+
+Future avenues for research on traffic stop missingness are plenty. Due to the frequent recording of the variables **latitude**, **longitude**, and **location**, spatial analyses of missingness would involve the SMR by location for several dozen datasets. Also, more exploration can be done regarding the interaction between the recording of race and other variables, like the string variable **violation**. Lastly, further research into the common temporal trends of missingness can be pursued and would greatly inform how missingness impacts model interpretation and results. 
+
+\newpage
+
+# References

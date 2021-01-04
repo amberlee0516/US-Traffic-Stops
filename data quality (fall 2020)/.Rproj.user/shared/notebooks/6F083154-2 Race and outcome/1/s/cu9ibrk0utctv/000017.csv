@@ -1,7 +1,0 @@
-"0","smrRace %>%"
-"0","  spread(key = subject_race, value = avg_SMR) %>%"
-"0","  ggplot(aes(x = white, y = black)) +"
-"0","  geom_point() +"
-"0","  geom_abline() +"
-"0","  scale_x_continuous(limits = c(0, 0.5)) +"
-"0","  scale_y_continuous(limits = c(0, 0.5))"
