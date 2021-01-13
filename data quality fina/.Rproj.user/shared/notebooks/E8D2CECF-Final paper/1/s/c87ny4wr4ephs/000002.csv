@@ -1,5 +1,0 @@
-"0",""
-"0","con <- dbConnect("
-"0","  MySQL(), host = ""traffic.st47s.com"", user = ""student"", "
-"0","  password = ""Sagehen47"", dbname = ""traffic"")"
-"0",""
