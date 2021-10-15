@@ -1,0 +1,28 @@
+---
+title: "Feb 2021 update"
+author: "Amber Lee"
+date: "2/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tools)
+# install.packages("diffr")
+library(diffr)
+```
+
+```{r base tools solution}
+
+md5sum("Final paper.Rmd") == md5sum("hardin revisions final paper.Rmd")
+
+```
+
+```{r}
+diffr("Final paper.Rmd", "hardin revisions final paper.Rmd")
+```
+
+
