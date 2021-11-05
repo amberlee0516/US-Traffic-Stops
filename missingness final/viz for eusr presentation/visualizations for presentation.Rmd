@@ -30,12 +30,13 @@ library(ggrepel)
 library(forcats) # reordering factors
 
 
- library(kableExtra) # save table as png
-# library(patchwork)
-# library(XML)
-# library(RCurl)
-# library(lutz)
-# library(suncalc)
+library(kableExtra) # save table as png
+library(latex2exp)
+library(patchwork)
+library(XML) #htmlParse
+library(RCurl) #getURL
+library(lutz)
+library(suncalc)
 ```
 
 
@@ -238,15 +239,18 @@ dataset_containing <- function(dataset, var_vect){
 # Visualizations for About the Data Section
 
 ```{r}
-# 15 most frequently recorded variables
-freq_var <- data.frame("var" = unlist(lapply(dataset_lst, function(dataset) names(dataset)))) %>%
-  group_by(var) %>%
-  summarize(count = n(), .groups = "drop") %>%
-  # drop type (either pedestrian or vehicular)
-  filter(var != "type" & str_detect(var, "row", negate = TRUE)) %>%
-  # n = 16 because dataset_name is a variable
-  slice_max(count, n = 16) %>%
-  pull(var)
+# # 15 most frequently recorded variables
+# freq_var <- data.frame("var" = unlist(lapply(dataset_lst, function(dataset) names(dataset)))) %>%
+#   group_by(var) %>%
+#   summarize(count = n(), .groups = "drop") %>%
+#   # drop type (either pedestrian or vehicular)
+#   filter(var != "type" & str_detect(var, "row", negate = TRUE)) %>%
+#   # n = 16 because dataset_name is a variable
+#   slice_max(count, n = 16) %>%
+#   pull(var)
+
+freq_var <- c("dataset_name", "date", "time", "lat", "lng", "subject_sex",
+              "subject_race", "subject_age", "search_conducted", "arrest_made")
 
 freq_dataset_lst <- lapply(dataset_lst, myfilter_for, freq_var, FALSE)
 
@@ -274,16 +278,17 @@ ggplot(data = all_var) +
   geom_point(data = all_var_subset, aes(x = 0, y = count, 
                                         color = as.factor(count))) +
   geom_label_repel(data = all_var_subset, aes(label = paste(all_var, "\n", count, "datasets"), x = 0, y = count, color = as.factor(count)), box.padding = 5, segment.color = 'grey50') +
-#  theme_classic() +
+  theme_classic() +
   coord_flip() +
-  ylim(-10, 65) +
+  ylim(-5, 65) +
   xlim(-2, 2) +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
-        legend.position = "none") +
+        legend.position = "none",
+        axis.line.y = element_blank()) +
   ylab("Datasets") +
-  ggtitle("Variables recorded 66 traffic stop datasets")
+  labs(subtitle = "The variables recorded during a traffic stop depends on the police department.")
 
 ggsave("fig/var_dist.png")
   
@@ -321,10 +326,18 @@ boxplot(dataset_stats$dataset_sizes)
 dataset_stats %>%
   ggplot() +
   geom_point(aes(x = dataset_k, y = dataset_smr,
-                 size = sqrt((dataset_sizes)), color = log(dataset_sizes)), position = "jitter") +
-  ggtitle("Dataset SMR and Number of Variables")
-ggsave("fig/SMR_n_k.png")
+                 size = sqrt(dataset_sizes), color = sqrt(dataset_sizes)),
+             position = "jitter") +
+  labs(subtitle = "Larger datasets recording more variables have higher dataset SMR.") +
+  theme_classic() +
+  ylab("Dataset SMR") +
+  xlab("Number of recorded variables (k)") +
+  guides(color=guide_legend(title = TeX(r"(\\sqrt{n})")), 
+         size = guide_legend(title = TeX(r"(\\sqrt{n})")))
+
+ggsave("fig/SMR_n_k.png") 
 # color and size variables kinda weird
+
 
 ```
 
@@ -349,14 +362,15 @@ bind_rows(NC_lst) %>%
   ggplot(aes(x = subject_age)) +
   geom_density(aes(color = dataset_name)) +
   facet_wrap(~ dataset_name)  +
+  theme_classic() +
   theme(legend.position = "none",
         axis.title.y=element_blank(),
         axis.text.y=element_blank(),
-        axis.ticks.y=element_blank()) +
+        axis.ticks.y=element_blank(),
+        axis.line.y =element_blank()) +
   scale_x_continuous("Age") +
-  labs(title = "Age densities for stopped drivers in North Carolina",
-       subtitle = "O")
-ggsave("fig/nc_age.png")
+  labs(title = "Age densities for stopped drivers in North Carolina")
+ggsave("fig/nc_age.png", height = 5, width = 7)
 
 # fyi
 
@@ -490,11 +504,12 @@ freq_smrRace %>%
   geom_boxplot(aes(x = labelled_race, y = SMR, group = labelled_race,
                    color = log(sum))) +
   coord_flip() +
+  theme_classic() +
   theme(axis.title.y = element_blank(),
         legend.position = "none") +
   labs(title = "SMR by race in 57 datasets")
 
-ggsave("fig/SMR_by_race.png")
+ggsave("fig/SMR_by_race.png", width = 9)
 
 ```
 
@@ -509,6 +524,7 @@ p_asian_white <- freq_smrRace %>%
   ggplot(aes(x = White, y = `Asian/Pacific Islander`)) +
   geom_point(size = 0.75) +
   geom_abline(color = 'grey50', alpha = 0.5) +
+  theme_classic() +
   scale_x_continuous("White", limits = c(0, 0.5)) +
   scale_y_continuous("Asian/Pacific Islander", limits = c(0, 0.5)) +
   theme(aspect.ratio = 1)
@@ -518,6 +534,7 @@ p_black_white <- freq_smrRace %>%
   ggplot(aes(x = White, y = Black)) +
   geom_point(size =  0.75) +
   geom_abline(color = 'grey50', alpha = 0.5) +
+  theme_classic() +
   scale_x_continuous("White", limits = c(0, 0.5)) +
   scale_y_continuous("Black", limits = c(0, 0.5)) +
   theme(aspect.ratio = 1) 
@@ -527,6 +544,7 @@ p_hispanic_white <- freq_smrRace %>%
   ggplot(aes(x = White, y = Hispanic)) +
   geom_point(size = 0.75) +
   geom_abline(color = 'grey50', alpha = 0.5) +
+  theme_classic() +
   scale_x_continuous("White", limits = c(0, 0.5)) +
   scale_y_continuous("Hispanic", limits = c(0, 0.5)) +
   theme(aspect.ratio = 1)
@@ -536,6 +554,7 @@ p_na_white <- freq_smrRace %>%
   ggplot(aes(x = White, y = `NA`)) +
   geom_point(size = 0.75) +
   geom_abline(color = 'grey50', alpha = 0.5) +
+  theme_classic() +
   scale_x_continuous("White", limits = c(0, 0.5)) +
   scale_y_continuous("NA", limits = c(0, 0.5)) +
   theme(aspect.ratio = 1)
@@ -543,6 +562,11 @@ p_na_white <- freq_smrRace %>%
 (p_asian_white | p_black_white )  / (p_hispanic_white | p_na_white )
 ggsave("fig/smr_race.png")
 rm(p_asian_white, p_black_white, p_hispanic_white, p_na_white)
+```
+
+
+```{r}
+rm(freq_smrRace)
 ```
 
 
@@ -638,8 +662,13 @@ makeDF.RaceOutcome <- function(str_outcome, dataset_lst){
   
 }
 
-raceoutcomes_lst <- lapply(c("search_conducted"), 
+raceoutcomes_lst <- lapply(c("search_conducted", "arrest_made"), 
                            makeDF.RaceOutcome, freq_dataset_lst)
+```
+
+
+```{r}
+raceoutcomes_lst[1]
 ```
 
 ```{r}
@@ -657,25 +686,528 @@ default.point <- list(geom_point(aes(size = `Total NA-race drivers`/`Total stops
 
 bind_rows(raceoutcomes_lst) %>%
   select(outcome, black, white, `missing race`, total_stops, total_na_race) %>%
-  gather(key = "race", value = "SMR", 2:3) %>%
-  rename(`SMR for NA race drivers` = `missing race`,
-         `Total stops` = total_stops, 
-         `Total NA-race drivers` = total_na_race) %>%
-  mutate(outcome = factor(outcome, levels = c("search conducted",
-                                              "arrest made"))) %>%
-  ggplot(aes(x = `SMR for NA race drivers`, y = `SMR`)) +
-  default.point +
-  facet_grid(outcome ~ race) +
-  labs(subtitle = " ") +  
-  theme(strip.placement = "outside") +
-  labs(title = "Figure 6: Post-stop outcome rates for Black, white, and NA-race drivers",
-       subtitle = "\nScatterplots for the search and arrest rates of Black and white drivers compared to NA-race drivers. \nThe search rate plots represents 32 datasets, while the arrest rate plots represent 33.")
+  gather(key = "race", value = "SMR", 2:3) 
+# %>%
+#   rename(`SMR for NA race drivers` = `missing race`,
+#          `Total stops` = total_stops, 
+#          `Total NA-race drivers` = total_na_race) %>%
+#   mutate(outcome = factor(outcome, levels = c("search conducted",
+#                                               "arrest made"))) %>%
+#   ggplot(aes(x = `SMR for NA race drivers`, y = `SMR`)) +
+#   default.point +
+#   facet_grid(outcome ~ race) +
+#   labs(subtitle = " ") +  
+#   theme(strip.placement = "outside") +
+#   labs(title = "Figure 6: Post-stop outcome rates for Black, white, and NA-race drivers",
+#        subtitle = "\nScatterplots for the search and arrest rates of Black and white drivers compared to NA-race drivers. \nThe search rate plots represents 32 datasets, while the arrest rate plots represent 33.")
 ```
 
 
 ## Missingness by date
 
+```{r}
+
+date_lst[[1]] %>%
+    mutate(dataset_name = case_when(str_detect(dataset_name, "IA") ~ "Iowa (statewide)",
+                                     str_detect(dataset_name, "KS") ~ "Wichita, KS",
+                                     str_detect(dataset_name, "KY") ~ "Louisville, KY",
+                                     str_detect(dataset_name, "MN") ~ "Saint Paul, MN",
+                                     str_detect(dataset_name, "SC") ~ "South Carolina (statewide)",
+                                     str_detect(dataset_name, "TN") ~ "Nashville, TN"))
+```
+
+
+```{r prepare date df}
+
+date_datasets <- c("IAstatewide", "KSwichita", "KYlouisville",
+                   "MNsaintpaul", "SCstatewide", "TNnashville")
+
+date_lst <- dataset_lst[sapply(freq_dataset_lst, function(x) x$dataset_name[1] %in% date_datasets)]
+date_lst <- lapply(date_lst, myfilter_for, freq_var, FALSE)
+
+# filtering OUT datasets that don't record date
+date_lst <- lapply(date_lst, dataset_containing, "date")
+date_lst <- date_lst[sapply(date_lst, function(x) isTRUE(nrow(x) > 0))]
+
+# helper function
+summarizeMissingTemporally <- function(dataset){
+  
+  dataset <- dataset %>%
+    mutate(nice_date = ymd(date),
+           nice_week = ymd(cut(nice_date, "week"))) %>%
+    select(dataset_name, nice_week, stop_missing_rate) %>%
+    ungroup() %>%
+    mutate(dataset_name = case_when(str_detect(dataset_name, "IA") ~ "Iowa (statewide)",
+                                     str_detect(dataset_name, "KS") ~ "Wichita, KS",
+                                     str_detect(dataset_name, "KY") ~ "Louisville, KY",
+                                     str_detect(dataset_name, "MN") ~ "Saint Paul, MN",
+                                     str_detect(dataset_name, "SC") ~ "South Carolina (statewide)",
+                                     str_detect(dataset_name, "TN") ~ "Nashville, TN")) %>%
+    group_by(nice_week, dataset_name) %>%
+    summarize(avg_SMR = mean(stop_missing_rate), stop_count = n(), .groups = "drop") 
+  
+  sum_counts <- dataset %>%
+    group_by(dataset_name) %>%
+    summarize(sum = sum(stop_count))
+  
+  dataset <- dataset %>%
+    left_join(sum_counts, by = "dataset_name") %>%
+    mutate(dataset_name = paste(dataset_name, "\n", "n = ", 
+                                prettyNum(signif(sum, 2),  big.mark=",", scientific=FALSE),
+                                sep = ""))
+
+  return(dataset)
+  
+}
+
+makeDF.SMRByDate <- function(date_list){
+  
+  # count NA
+  date_list <- lapply(date_list, countMissing, 1, TRUE, "date")
+  
+  # summarize
+  date_list <- lapply(date_list, summarizeMissingTemporally)
+  
+  state_df <- data.frame(state = state.abb, region = state.region)
+  
+  southern_str <- state_df$state[state_df$region == "South"]
+  west_str <- state_df$state[state_df$region == "West"]
+  northeast_str <- state_df$state[state_df$region == "Northeast"]
+  northcent_str <- state_df$state[state_df$region == "North Central"]
+  
+  nvar_per_dataset <- data.frame(dataset_name = sapply(dataset_lst, 
+                                             function(dataset) dataset$dataset_name[1]),
+                       n_var = sapply(dataset_lst, 
+                                      function(dataset) length(names(dataset))))
+  
+  # make df just include date and SMR
+  date_df <- bind_rows(date_list) %>%
+    mutate(state_abb = substr(dataset_name, 1, 2),
+           region = case_when(state_abb %in% southern_str ~ "South",
+                              state_abb %in% west_str ~ "West",
+                              state_abb %in% northeast_str ~ "Northeast",
+                              state_abb %in% northcent_str ~ "North Central",
+                              TRUE ~ "No regioned (error!)")) %>%
+    #something off about this left join
+    left_join(nvar_per_dataset, by = "dataset_name")
+  
+  return(date_df)
+  
+}
+
+date_df <- makeDF.SMRByDate(date_lst)
+
+```
+
+```{r visualize date}
+
+ggplot_date <- function(date_dataset, region_or_dataset){
+  
+  plot_region <- function(name){
+    
+    p <- date_dataset %>%
+      filter(region == name) %>%
+      ggplot() +
+      geom_point(aes(x = nice_week, y = avg_SMR, 
+                     color = dataset_name), alpha = .8) +
+      ggtitle(paste(name, "weekly SMR over time"))
+    
+    # ggsave(paste(name, "weekly SMR.png"), p)
+    return(p)
+    
+  }
+  
+  plot_dataset <- function(name){
+    
+    p <- date_dataset %>%
+      filter(dataset_name == name) %>%
+      ggplot() +
+      geom_point(aes(x = nice_week, y = avg_SMR), alpha = .8, size = 0.47) +
+      labs(subtitle = paste(name)) +
+      theme_classic() + 
+      theme(aspect.ratio = 2/3, axis.title.x = element_blank(), 
+            axis.title.y = element_blank(),
+            axis.line.y = element_blank())
+
+    # ggsave(paste(name, "weekly SMR.png"), p)
+    return(p)
+    
+  }
+  
+  if (region_or_dataset == "region"){
+    region_names <- date_dataset %>% distinct(region) %>% pull(region)
+    plots <- lapply(region_names, plot_region)
+    
+  } else if (region_or_dataset == "dataset"){
+    dataset_names <- date_dataset %>% distinct(dataset_name) %>% pull(dataset_name)
+    plots <- lapply(dataset_names, plot_dataset)
+    
+  } else {return(stop("typo in region_or_dataset"))}
+
+  return(plots)
+  
+}
+
+# from https://github.com/thomasp85/patchwork/issues/43 @mingsu
+add_global_label <- function(pwobj, Xlab = NULL, Ylab = NULL, Xgap = 0.03, Ygap = 0.03, ...) {
+    ylabgrob <- patchwork::plot_spacer()
+    if (!is.null(Ylab)) {
+        ylabgrob <- ggplot() +
+            geom_text(aes(x = 0.5, y = 0.5), label = Ylab, angle = 90, ...) +
+            theme_void()
+    }
+    if (!is.null(Xlab)) {
+        xlabgrob <- ggplot() +
+            geom_text(aes(x = .5, y = .5), label = Xlab, ...) +
+            theme_void()
+    }
+    if (!is.null(Ylab) & is.null(Xlab)) {
+        return((ylabgrob + patchworkGrob(pwobj)) + 
+            patchwork::plot_layout(widths = 100 * c(Ygap, 1 - Ygap)))
+    }
+    if (is.null(Ylab) & !is.null(Xlab)) {
+        return((ylabgrob + pwobj) + 
+            (xlabgrob) +
+            patchwork::plot_layout(heights = 100 * c(1 - Xgap, Xgap),
+                                   widths = c(0, 100),
+                                   design = "
+                                   AB
+                                   CC
+                                   "
+            ))
+    }
+    if (!is.null(Ylab) & !is.null(Xlab)) {
+        return((ylabgrob + pwobj) + 
+            (xlabgrob) +
+            patchwork::plot_layout(heights = 100 * c(1 - Xgap, Xgap),
+                                   widths = 100 * c(Ygap, 1 - Ygap),
+                                   design = "
+                                   AB
+                                   CC
+                                   "
+            ))
+    }
+    return(pwobj)
+}
+
+
+date_plots <- ggplot_date(date_df, "dataset")
+
+(((date_plots[[1]] + scale_x_date(date_breaks = "3 years",
+                                          date_labels = "%Y")) + 
+    (date_plots[[2]] + scale_x_date(date_breaks = "4 years",
+                                          date_labels = "%Y")) + 
+    date_plots[[3]]) /
+    (date_plots[[4]] + date_plots[[5]] + date_plots[[6]])) %>%
+  plot_layout(guides = "collect")
+
+ggsave("fig/smr_temporal.png")
+
+
+```
+
 ## Missingness by time
+
+```{r find coordinates}
+
+time_datasets <- c("IAstatewide", "KSwichita",  "KYlouisville", "MNsaintpaul")
+
+time_lst <- date_lst[sapply(date_lst, function(x) x$dataset_name[1] %in% time_datasets)]
+
+makeDF.Coordinates <- function(dataset_lst){
+  
+  pull_location_str <- function(dataset, for_URL){
+    # for_URL is a boolean indicating if pulling the location_str
+    # for a URL or not
+    
+    name <- dataset$dataset_name[1]
+    
+    if(for_URL){
+        
+      # extract lowecase letters of name
+      check <- str_extract(name, "[a-z]+")
+      state <- state.name[grep(str_sub(name, 1,2), state.abb)]
+      
+      if(check == "statewide" | check == "state"){
+        
+        url_name <- gsub(" ", "+", state.name[grep(str_sub(name, 1,2), state.abb)])
+        # return full name of the state
+        
+        return(url_name)
+        
+      } else {
+        
+        url_name <- gsub(" ", "+", paste(check, state))
+        return(url_name)
+          
+      }
+    
+    }
+  
+  # otherwise just turn dataset_name, as it is formatted in the dataset
+  return(name)
+  
+}
+
+  location_str_URL <- lapply(time_lst, pull_location_str, TRUE)
+  
+  # scraper function to fetch coordinates from city string
+  get_coordinates <- function(city){
+  
+    # city is a string
+  
+    url_str <- paste("http://www.google.com/search?q=latitude+and+longitude+of+",
+               city, sep = "")
+  
+    doc <- htmlParse(getURL(url_str))
+  
+    # class = BNeawe iBp4i AP7Wnd retrieves the coordinates
+    coordinates <- xpathSApply(doc, "//div[@class='BNeawe iBp4i AP7Wnd']", xmlValue)[1]
+  
+    clean_coordinates <- str_split(coordinates, ", ")[[1]]
+  
+    # use regular expressions to extract lat and lng
+    lat <- as.numeric(str_extract(clean_coordinates[1], "\\d+\\.*\\d*"))
+    # multiple long by -1 b/c...?
+    long <- -1*as.numeric(str_extract(clean_coordinates[2], "\\d+\\.*\\d*"))
+  
+    final_coordinates <- c(lat, long)
+    return(final_coordinates)
+  
+  }
+  
+  # find lat/long information using get_coordinates function and relevant_dataset_names df
+  coordinates_lst <- lapply(location_str_URL, get_coordinates)
+  
+  # bind lat/long information with relevant_dataset_names
+  coordinates_df <- data.table::transpose(data.frame(coordinates_lst)) %>%
+    # join with dataset_names
+    bind_cols(data.table::transpose(data.frame(lapply(time_lst, pull_location_str, FALSE)))) %>%
+    rename(lat = V1...1, lng = V2, dataset_name = V1...3)
+  
+  return(coordinates_df)
+  
+}
+
+coordinates_df <- makeDF.Coordinates(time_lst)
+
+```
+
+```{r add daynight variable}
+
+# helper function for add_day_night, returns minute of the day
+time_to_minute <- function(time){
+  # time can be str
+  lubridate::hour(hms(time)) * 60 + lubridate::minute(hms(time))
+}
+
+# calculate sunset, sunrise, dusk, and dawn times
+oursunriseset <- function(latitude, longitude, date, timezone, direction) {
+  
+  date.lat.long <- data.frame(date = date, lat = latitude, lon = longitude)
+  
+  if(direction == "sunset"){
+    # call getSunlightTimes from the lutz package
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$sunset
+    
+  } else if(direction == "sunrise"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$sunri 
+    
+  } else if (direction == "dusk"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$dusk
+    
+  } else if (direction == "dawn"){
+    getSunlightTimes(data = date.lat.long, keep=direction, tz=timezone)$dawn
+  }
+}
+
+add_day_night <- function(dataset, coord_df){
+    
+  dataset_name_str <- dataset$dataset_name[1]
+
+  # filter for lat/long information of dataset
+  coord_df <- coord_df %>% filter(dataset_name == dataset_name_str)
+  
+  # intialize lat, long, tz information
+  lat <- coord_df$lat[1]
+  lng <- coord_df$lng[1]
+  time_zone <- lutz::tz_lookup_coords(lat, lng, warn = F)
+  
+  # use lubridate to clean date type in dataset
+  dataset <- dataset %>%
+    filter(!is.na(time) & !is.na(date)) %>%
+    mutate(date = as.Date(ymd(date, tz = time_zone)),
+           stop_minute = time_to_minute(time))
+  
+  # df for dawn, sunrise, sunset, and dusk times for distinct dates
+  sunriseset_times <- dataset %>% 
+    filter(!is.na(date)) %>%
+    distinct(date) %>% 
+    mutate(dawn_hms = format(oursunriseset(lat, lng, date, 
+                                           time_zone, direction = "dawn"), 
+                             "%H:%M:%S"),
+           sunrise_hms = format(oursunriseset(lat, lng, date, 
+                                              time_zone, direction = "sunrise"),
+                               "%H:%M:%S"),
+           sunset_hms = format(oursunriseset(lat, lng, date, 
+                                             time_zone, direction = "sunset"), 
+                               "%H:%M:%S"),
+           dusk_hms = format(oursunriseset(lat, lng, date, 
+                                           time_zone, direction = "dusk"), 
+                             "%H:%M:%S"),
+           dawn = time_to_minute(dawn_hms),
+           sunrise = time_to_minute(sunrise_hms),
+           sunset = time_to_minute(sunset_hms),
+           dusk = time_to_minute(dusk_hms))
+
+  # filter dataset for stops occurring during window_of_stop 
+  dataset <- dataset %>% 
+    left_join(sunriseset_times, by = "date") %>%
+    mutate(day_night = case_when(stop_minute >= dawn & 
+                                   stop_minute < sunrise ~ "twilight morning",
+                                 stop_minute >= sunrise & 
+                                   stop_minute < sunset ~ "day",
+                                 stop_minute >= sunset & 
+                                   stop_minute < dusk ~ "twilight evening",
+                                 stop_minute >= dusk | 
+                                   stop_minute < dawn ~ "night",
+                                 TRUE ~ "missing"))
+  
+}
+
+sunriseset_lst <- lapply(time_lst, add_day_night, coordinates_df)
+
+```
+
+```{r make sunriseset df}
+
+summarizeSMRDayNight <- function(dataset){
+    # calculate average SMR per month for day and night
+    # find_diff_bool indicates if we want to SPREAD the dataset
+    
+    dataset <- dataset %>% 
+      mutate(nice_month = ymd(cut(ymd(date), "month")),
+             dataset_name = case_when(str_detect(dataset_name, "IA") ~ "Iowa (statewide)",
+                                      str_detect(dataset_name, "KS") ~ "Wichita, KS",
+                                      str_detect(dataset_name, "KY") ~ "Louisville, KY",
+                                      str_detect(dataset_name, "MN") ~ "Saint Paul, MN")) %>%
+      group_by(dataset_name, nice_month, day_night) %>%
+      # filter out stops occurring during twilight
+      filter(str_detect(day_night, "twilight", negate = TRUE)) %>%
+      summarize(avg_SMR = mean(stop_missing_rate), 
+                stop_count = n(), .groups = "drop")
+    
+      sum_counts <- dataset %>%
+        group_by(dataset_name) %>%
+        summarize(sum = sum(stop_count))
+      
+      dataset <- dataset %>%
+        left_join(sum_counts, by = "dataset_name") %>%
+        mutate(dataset_name = paste(dataset_name, "\n", "n = ", 
+                                prettyNum(signif(sum, 2),  big.mark=",", scientific=FALSE),
+                                sep = ""))
+    
+    return(dataset)
+    
+  }
+
+makeDF.SMRTime <- function(sunriseset_list, find_diff_bool){
+  
+  # filter away the helper columns like stop_minute and dusk_hms
+  sunriseset_list <- lapply(sunriseset_list, myfilter_for, c(freq_var, "day_night"), FALSE)
+  
+  # count NA
+  sunriseset_list <- lapply(sunriseset_list, countMissing, 1, TRUE,
+                            c("time", "day_night", "date"))
+  
+  # summarize SMR per month by day and night
+  sunriseset_list <- lapply(sunriseset_list, summarizeSMRDayNight)
+  
+  sunriseset_df <- bind_rows(sunriseset_list)
+  
+  if (find_diff_bool){
+    
+    sunriseset_df <- sunriseset_df %>%
+      spread(key = day_night, value = avg_SMR) %>%
+      mutate(diff_SMR = day - night)
+    
+  }
+  
+  return(sunriseset_df)
+  
+}
+
+sunriseset_df <- makeDF.SMRTime(sunriseset_lst, FALSE)
+
+```
+
+```{r visualize day night smr}
+
+ggplot_sunriseset <- function(sunriseset_dataset, variable_str){
+  
+  plot_avg <- function(name){
+    
+    p <- sunriseset_dataset %>%
+      filter(dataset_name == name) %>%
+      ggplot(aes(x = nice_month, y = avg_SMR)) +
+      geom_point(size = 0.47) +
+      facet_wrap(~ day_night) +
+      theme_classic() +
+      labs(subtitle = paste(name)) +
+      theme(axis.title.x = element_blank(), 
+            axis.title.y = element_blank(), aspect.ratio = 4/5,
+            axis.line.y = element_blank())
+    
+    # ggsave(paste(name, "SMR by day and night.png"), p)
+    
+    return(p)
+    
+  }
+  
+  plot_diff <- function(name){
+    
+    p <- sunriseset_dataset %>%
+      filter(dataset_name == name) %>%
+      ggplot(aes(x = nice_month, y = diff_SMR)) +
+      geom_point() +
+      ggtitle(paste("Difference in SMR of", name, 
+                    "Between Day and Night per month")) +
+      labs(x = "Date", y = "Difference in SMR")
+    
+    # ggsave(paste(name, "SMR day and night.png"), p)
+    
+    return(p)
+    
+  }
+  
+  dataset_name <- sunriseset_dataset %>% distinct(dataset_name) %>% pull(dataset_name)
+  
+  if (variable_str == "avg_SMR"){
+    plots <- lapply(dataset_name, plot_avg)
+    
+  } else if (variable_str == "diff_SMR") {
+    plots <- lapply(dataset_name, plot_diff)
+    
+  } else {stop("typo in variable_str!")}
+
+  return(plots)
+  
+}
+
+sunriseset_plots <- ggplot_sunriseset(sunriseset_df, "avg_SMR")
+
+(((sunriseset_plots[[1]] + scale_x_date(date_breaks = "3 years",
+                                        date_labels = "%Y")) + 
+    (sunriseset_plots[[2]] + scale_x_date(date_breaks = "4 years",
+                                          date_labels = "%Y"))) /
+    ((sunriseset_plots[[3]] + scale_x_date(date_breaks = "2 years",
+                                          date_labels = "%Y")) +
+       sunriseset_plots[[4]])) %>%
+  plot_layout(guides = "collect")
+
+ggsave("fig/smr_daynnite.png")
+
+```
 
 # Descriptive Statistics 
 

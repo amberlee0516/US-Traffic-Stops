@@ -36,20 +36,20 @@
 
 %\setbeamerfont{frametitle}{shape=\scshape}
 
+%%% finish
+% Example -- all. bc the alignment is kind of trash
+% Conclusion
+
 %===============================================================%
 \begin{document}
 %===============================================================%
 
 \maketitle
 
-\begin{frame}{Table of Contents}
-\tableofcontents
-\end{frame}
 
 \begin{frame}{Motivation}
-    Public concern over racial profiling has led to the collection of traffic stop data. As traffic stop data has been made available to the public, researchers have tried to quantitatively look for evidence of discrimination. \pause
+    Concern over racial profiling has led to mass collection of traffic stop data. As the data has been made available to the public, researchers have modeled the data to look for evidence of discrimination. \pause
     \begin{itemize}
-    \item A generic model may look like \texttt{search\_conducted $\sim$ race + gender + age + day/night}.
     \item Most statistical models do not handle missing values, so most studies simply use complete-case analysis (\texttt{na.rm = True}).
     \item Chanin and Welsh (2020) draw attention to the issue of (non-random) missing values.
     % and hypothesize that officers are not incentivized to accurately and comprehensively collect data.
@@ -102,17 +102,22 @@
     \begin{equation*}
     \SMR(X) = \dfrac{1}{n} \sum_{i = 1}^{n} \SMR_i
     \end{equation*}
-    \end{definition}
-    Example
-    \begin{equation*}
-    \SMR(X) = 7/12
-    \end{equation*}
-    \\~\\
-    \includegraphics{fig/toyoak.png}
+    \end{definition} \pause
+    \begin{columns}
+        \column{0.3\textwidth}
+        Example
+            \begin{equation*}
+    	    \SMR(X) = 2/16
+	    \end{equation*}
+    \column{0.7\textwidth}
+	    \begin{center}
+	    \includegraphics[scale = 0.6]{fig/toyoak.png}
+	    \end{center}
+    \end{columns}
 \end{frame}
 
 \begin{frame}{Missingness by a variable}
-    One limitation of $\SMR_i$ and $\SMR(X)$ is that we can't see how missingness varies \emph{by} a variable, like time of day or the \race \, of the driver. 
+    % One limitation of $\SMR_i$ and $\SMR(X)$ is that we can't see how missingness varies \emph{by} a variable, like time of day or the \race \, of the driver. 
     \begin{definition}
     The {\bf{$\SMR$ for observation $i$ restricted by variable $j'$}} is the percentage of missing values for a traffic stop $i$, excluding variable $j'$. 
     \\~\\
@@ -120,9 +125,19 @@
     \begin{equation*}
     \SMR_{i, j'} = \dfrac{1}{k-1} \sum_{j \neq j'} \indic(x_{ij}).
     \end{equation*}
-    \end{definition}
-    Example
-    % finish
+    \end{definition} \pause
+    \begin{columns}
+        \column{0.3\textwidth}
+        Example
+            \begin{gather*}
+    	    \SMR_{1, \texttt{race}} = 1/3 \\
+	    \SMR_{2, \texttt{race}} = 0 \\
+	    \end{gather*}
+    \column{0.7\textwidth}
+	    \begin{center}
+	    \includegraphics[scale = 0.6]{fig/toyoak.png}
+	    \end{center}
+    \end{columns}
 \end{frame}
 
 \begin{frame}{SMR by \race}
@@ -148,9 +163,19 @@
     &\SMR_{(O)} = \dfrac{1}{ |(O)| } \sum_{i \in (O)} \SMR_{i, \rrr} \\
     &\SMR_{(\texttt{NA})} = \dfrac{1}{ |(\texttt{NA})| } \sum_{i \in (\texttt{NA})} \SMR_{i, \rrr}.
     \end{align*}
-    % These are the averages of $\SMR$ restricted by race for each value of \race. Together, these values are referred (albeit vaguely) to as $\SMR$ by race. 
-    Example
-    % finish
+    \begin{columns}
+        \column{0.3\textwidth}
+        Example
+            \begin{gather*}
+    	    \SMR_{(B)} = 1/6 \\
+	    \SMR_{(H)} = 1/3 \\
+	    \SMR_{(O)} = 0 \\
+	    \end{gather*}
+    \column{0.7\textwidth}
+	    \begin{center}
+	    \includegraphics[scale = 0.6]{fig/toyoak.png}
+	    \end{center}
+    \end{columns}
 \end{frame}
 
 \begin{frame}{SMR by \texttt{date} and \texttt{time}}
@@ -184,58 +209,88 @@
 \section{About the data}
 
 \begin{frame}{About the datasets}
-	The Stanford Open Policing Project
-	\begin{itemize} 
-	\item amasses 100 million number of traffic stop observations 
-	\item from 21 state patrol agencies and 35 municipal police departments 
-	\item from 1999 to 2020. 
-	\end{itemize}
-	% insert graphic here
-	% finish (optional)
+    The Stanford Open Policing Project several dozen datasets from 1999 to 2020. Each dataset records a different set of variables. \pause
+    	\vspace{1ex}
+	\begin{center}
+	\includegraphics[scale=0.1]{fig/var_dist.png}
+	\end{center} 
 \end{frame}
+
+%\begin{frame}{About the datasets}
+%      \begin{center}
+%      \includegraphics[scale = 0.1]{fig/SMR_n_k.png}
+%      \end{center}
+%\end{frame}
 
 \begin{frame}{Data pre-processing}
 	% datasets collect
-	We consider 32 total datasets and $k = 9$ variables. 
+	We select $k = 9$ variables about 
 	\begin{itemize} 
 	\item driver demographic: \texttt{race}, \texttt{sex}, \texttt{age};
 	\item situational details: \texttt{time}, \texttt{date}, \texttt{latitude}, \texttt{longitude}; and
 	\item outcomes: \texttt{search\_conducted} and \texttt{arrest\_made}.
-	\end{itemize}
+	\end{itemize} 
+	And, for computational reasons, I take a 30\% random sample of each dataset. 
 \end{frame}
 
-\begin{frame}{Note: data collection is a deeply human process.}
-	% insert age densities plot
-	% finish
-	In states like California and New York, officers use \emph{perception}(!!!) to gauge driver race, gender, and age. Evidently, North Carolina definitely uses perception for age, too. 
-\end{frame}
+%\begin{frame}{Note: Data collection is a deeply human process.}
+%	In states like California and New York, officers use \emph{perception} to record driver race, gender, and age. 
+%	\begin{center}
+%	\includegraphics[scale=0.1]{fig/nc_age.png}
+%	\end{center}
+%	Evidently, North Carolina uses perception for age, too. 
+%\end{frame}
 
 \section{Visualizations}
+\frame{\sectionpage}
 
-\begin{frame}{Missingness by race}
-yeehaw
+\begin{frame}{SMR by race}
+	\begin{center}
+	\includegraphics[scale=0.1]{fig/SMR_by_race.png}
+	\end{center}
 \end{frame}
 
-\begin{frame}{Post-stop outcomes by race}
-yeehaw
+\begin{frame}{SMR by race}
+	\begin{center}
+	\includegraphics[scale=0.15]{fig/smr_race.png}
+	\end{center}
 \end{frame}
 
-\begin{frame}{Missingness by \texttt{date}}
-graphic
+\begin{frame}{SMR by \texttt{date}}
+	\begin{center}
+	\includegraphics[scale=0.15]{fig/smr_temporal.png}
+	\end{center}
 \end{frame}
 
-\begin{frame}{Missingness by \texttt{time}}
-graphic
+\begin{frame}{SMR by \texttt{time}}
+	\begin{center}
+	\includegraphics[scale=0.15]{fig/smr_daynnite.png}
+	\end{center}
+	% showing a few examples emblematic ...
+	% artifically weighting traffic stops of a certain time period when excluding observations with missing values
 \end{frame}
 
 \begin{frame}{Discussion}
 	\begin{itemize}
-	\item race
-	\item post-stop outcomes by race, NA race drivers
-	\item date
-	\item day vs. night
+	\item Regarding \race, there isn't much evidence that Asian/Pacific Islander, Black, and Hispanic traffic stops are recorded differently than White traffic stops. 
+	\item Traffic stops with missing \race \, have higher rates of missing values in other variables, too.
+	\item Traffic stops are recorded differently based on the \texttt{date} and \texttt{time} of the traffic stop. Exactly \emph{how} the missingness is different depends on the dataset. 
+	\item Future research could investigate the missingness mechanism (missing at random and missing not at random). 
 	\end{itemize}
 \end{frame}
+
+\begin{frame}
+	Thank you!
+\end{frame}
+
+\begin{frame}{Note: Data collection is a deeply human process.}
+	In states like California and New York, officers use \emph{perception} to record driver race, gender, and age. 
+	\begin{center}
+	\includegraphics[scale=0.1]{fig/nc_age.png}
+	\end{center}
+	Evidently, North Carolina uses perception for age, too. 
+\end{frame}
+
 
 \iffalse
 

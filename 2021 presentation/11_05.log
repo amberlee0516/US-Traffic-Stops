@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.19 (TeX Live 2018) (preloaded format=pdflatex 2018.4.16)  2 NOV 2021 16:38
+This is pdfTeX, Version 3.14159265-2.6-1.40.19 (TeX Live 2018) (preloaded format=pdflatex 2018.4.16)  4 NOV 2021 16:28
 entering extended mode
  \write18 enabled.
  file:line:error style messages enabled.
@@ -1138,21 +1138,21 @@ lfonts.sty)
 ) (./11_05.aux)
 \openout1 = `11_05.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 40.
-LaTeX Font Info:    ... okay on input line 40.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 40.
-LaTeX Font Info:    ... okay on input line 40.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 40.
-LaTeX Font Info:    ... okay on input line 40.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 40.
-LaTeX Font Info:    ... okay on input line 40.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 40.
-LaTeX Font Info:    ... okay on input line 40.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 40.
-LaTeX Font Info:    ... okay on input line 40.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 40.
-LaTeX Font Info:    ... okay on input line 40.
-LaTeX Font Info:    Try loading font information for OT1+lmss on input line 40.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 44.
+LaTeX Font Info:    ... okay on input line 44.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 44.
+LaTeX Font Info:    ... okay on input line 44.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 44.
+LaTeX Font Info:    ... okay on input line 44.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 44.
+LaTeX Font Info:    ... okay on input line 44.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 44.
+LaTeX Font Info:    ... okay on input line 44.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 44.
+LaTeX Font Info:    ... okay on input line 44.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 44.
+LaTeX Font Info:    ... okay on input line 44.
+LaTeX Font Info:    Try loading font information for OT1+lmss on input line 44.
 
 
 (/usr/local/texlive/2018/texmf-dist/tex/latex/lm/ot1lmss.fd
@@ -1224,7 +1224,7 @@ e
 ))
 ABD: EveryShipout initializing macros
 \AtBeginShipoutBox=\box105
-Package hyperref Info: Link coloring OFF on input line 40.
+Package hyperref Info: Link coloring OFF on input line 44.
 
 (/usr/local/texlive/2018/texmf-dist/tex/latex/hyperref/nameref.sty
 Package: nameref 2016/05/21 v2.44 Cross-referencing by name of section
@@ -1234,9 +1234,9 @@ Package: gettitlestring 2016/05/16 v1.5 Cleanup title references (HO)
 )
 \c@section@level=\count352
 )
-LaTeX Info: Redefining \ref on input line 40.
-LaTeX Info: Redefining \pageref on input line 40.
-LaTeX Info: Redefining \nameref on input line 40.
+LaTeX Info: Redefining \ref on input line 44.
+LaTeX Info: Redefining \pageref on input line 44.
+LaTeX Info: Redefining \nameref on input line 44.
 
 (./11_05.out) (./11_05.out)
 \@outlinefile=\write5
@@ -1267,27 +1267,14 @@ Dictionary: translator-numbers-dictionary, Language: English
 tionary-English.dict
 Dictionary: translator-theorem-dictionary, Language: English 
 ) (./11_05.nav)
-<pom_crest.png, id=52, 1524.69624pt x 2409.0pt>
+<pom_crest.png, id=55, 1524.69624pt x 2409.0pt>
 File: pom_crest.png Graphic file (type png)
 <use pom_crest.png>
-Package pdftex.def Info: pom_crest.png  used on input line 43.
+Package pdftex.def Info: pom_crest.png  used on input line 47.
 (pdftex.def)             Requested size: 138.28693pt x 218.51813pt.
  [1{/usr/local/texlive/2018/texmf-var/fonts/map/pdftex/updmap/pdftex.map}
 
- <./pom_crest.png>] (./11_05.toc)
-<crest_title.png, id=98, 8070.15pt x 3312.375pt>
-File: crest_title.png Graphic file (type png)
-<use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 47.
-(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
-
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 47--47
-[][]  
- []
-
-[2
-
- <./crest_title.png>]
+ <./pom_crest.png>]
 LaTeX Font Info:    Try loading font information for OT1+lmtt on input line 58.
 
 
@@ -1337,6 +1324,19 @@ LaTeX Font Info:    Try loading font information for U+rsfs on input line 58.
 (/usr/local/texlive/2018/texmf-dist/tex/latex/jknapltx/ursfs.fd
 File: ursfs.fd 1998/03/24 rsfs font definition file (jk)
 )
+<crest_title.png, id=104, 8070.15pt x 3312.375pt>
+File: crest_title.png Graphic file (type png)
+<use crest_title.png>
+Package pdftex.def Info: crest_title.png  used on input line 58.
+(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
+
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 58--58
+[][]  
+ []
+
+[2
+
+ <./crest_title.png>]
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
 Package pdftex.def Info: crest_title.png  used on input line 58.
@@ -1361,18 +1361,6 @@ Overfull \hbox (18.29846pt too wide) in paragraph at lines 58--58
 [4
 
 ]
-File: crest_title.png Graphic file (type png)
-<use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 58.
-(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
-
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 58--58
-[][]  
- []
-
-[5
-
-]
 LaTeX Font Info:    Try loading font information for U+bbm on input line 82.
  (/usr/local/texlive/2018/texmf-dist/tex/latex/bbm-macros/ubbm.fd
 File: ubbm.fd 1999/03/15 V 1.2 Font definition for bbm font - TH
@@ -1386,7 +1374,7 @@ Overfull \hbox (18.29846pt too wide) in paragraph at lines 82--82
 [][]  
  []
 
-[6
+[5
 
 ]
 File: crest_title.png Graphic file (type png)
@@ -1398,42 +1386,68 @@ Overfull \hbox (18.29846pt too wide) in paragraph at lines 82--82
 [][]  
  []
 
-[7
+[6
 
 ]
+<fig/toyoak.png, id=241, 350.7504pt x 90.8193pt>
+File: fig/toyoak.png Graphic file (type png)
+<use fig/toyoak.png>
+Package pdftex.def Info: fig/toyoak.png  used on input line 117.
+(pdftex.def)             Requested size: 210.45186pt x 54.49199pt.
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 112.
+Package pdftex.def Info: crest_title.png  used on input line 117.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 112--112
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 117--117
+[][]  
+ []
+
+[7
+
+ <./fig/toyoak.png>]
+File: fig/toyoak.png Graphic file (type png)
+<use fig/toyoak.png>
+Package pdftex.def Info: fig/toyoak.png  used on input line 117.
+(pdftex.def)             Requested size: 210.45186pt x 54.49199pt.
+File: crest_title.png Graphic file (type png)
+<use crest_title.png>
+Package pdftex.def Info: crest_title.png  used on input line 117.
+(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
+
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 117--117
 [][]  
  []
 
 [8
 
 ]
-LaTeX Font Info:    Font shape `OT1/lmss/m/it' in size <10.95> not available
-(Font)              Font shape `OT1/lmss/m/sl' tried instead on input line 126.
-
+File: fig/toyoak.png Graphic file (type png)
+<use fig/toyoak.png>
+Package pdftex.def Info: fig/toyoak.png  used on input line 141.
+(pdftex.def)             Requested size: 210.45186pt x 54.49199pt.
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 126.
+Package pdftex.def Info: crest_title.png  used on input line 141.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 126--126
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 141--141
 [][]  
  []
 
 [9
 
 ]
+File: fig/toyoak.png Graphic file (type png)
+<use fig/toyoak.png>
+Package pdftex.def Info: fig/toyoak.png  used on input line 141.
+(pdftex.def)             Requested size: 210.45186pt x 54.49199pt.
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 142.
+Package pdftex.def Info: crest_title.png  used on input line 141.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 142--142
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 141--141
 [][]  
  []
 
@@ -1442,22 +1456,26 @@ Overfull \hbox (18.29846pt too wide) in paragraph at lines 142--142
 ]
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 154.
+Package pdftex.def Info: crest_title.png  used on input line 157.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 154--154
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 157--157
 [][]  
  []
 
 [11
 
 ]
+File: fig/toyoak.png Graphic file (type png)
+<use fig/toyoak.png>
+Package pdftex.def Info: fig/toyoak.png  used on input line 179.
+(pdftex.def)             Requested size: 210.45186pt x 54.49199pt.
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 168.
+Package pdftex.def Info: crest_title.png  used on input line 179.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 168--168
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 179--179
 [][]  
  []
 
@@ -1466,10 +1484,10 @@ Overfull \hbox (18.29846pt too wide) in paragraph at lines 168--168
 ]
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 168.
+Package pdftex.def Info: crest_title.png  used on input line 193.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 168--168
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 193--193
 [][]  
  []
 
@@ -1478,40 +1496,21 @@ Overfull \hbox (18.29846pt too wide) in paragraph at lines 168--168
 ]
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 195.
+Package pdftex.def Info: crest_title.png  used on input line 193.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 195--195
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 193--193
 [][]  
  []
 
 [14
 
 ]
-File: crest_title.png Graphic file (type png)
-<use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 205.
-(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
-
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 205--205
-[][]  
- []
-
-[15
-
-]
-File: crest_title.png Graphic file (type png)
-<use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 211.
-(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
-
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 211--211
-[][]  
- []
-
-[16
-
-]
+<fig/var_dist.png, id=447, 2195.20125pt x 1356.06625pt>
+File: fig/var_dist.png Graphic file (type png)
+<use fig/var_dist.png>
+Package pdftex.def Info: fig/var_dist.png  used on input line 217.
+(pdftex.def)             Requested size: 219.53297pt x 135.61456pt.
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
 Package pdftex.def Info: crest_title.png  used on input line 217.
@@ -1521,57 +1520,145 @@ Overfull \hbox (18.29846pt too wide) in paragraph at lines 217--217
 [][]  
  []
 
-[17
+[15
 
-]
+ <./fig/var_dist.png>]
+File: fig/var_dist.png Graphic file (type png)
+<use fig/var_dist.png>
+Package pdftex.def Info: fig/var_dist.png  used on input line 217.
+(pdftex.def)             Requested size: 219.53297pt x 135.61456pt.
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 221.
+Package pdftex.def Info: crest_title.png  used on input line 217.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 221--221
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 217--217
 [][]  
  []
 
-[18
+[16
 
 ]
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 225.
+Package pdftex.def Info: crest_title.png  used on input line 234.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 225--225
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 234--234
 [][]  
+ []
+
+[17
+
+] [18
+
+]
+<fig/SMR_by_race.png, id=554, 2710.125pt x 2107.875pt>
+File: fig/SMR_by_race.png Graphic file (type png)
+<use fig/SMR_by_race.png>
+Package pdftex.def Info: fig/SMR_by_race.png  used on input line 251.
+(pdftex.def)             Requested size: 271.02838pt x 210.79985pt.
+File: crest_title.png Graphic file (type png)
+<use crest_title.png>
+Package pdftex.def Info: crest_title.png  used on input line 251.
+(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
+
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 251--251
+[][]  
+ []
+
+
+Overfull \vbox (1.9169pt too high) detected at line 251
  []
 
 [19
 
-]
+ <./fig/SMR_by_race.png>]
+<fig/smr_race.png, id=581, 2195.20125pt x 1356.06625pt>
+File: fig/smr_race.png Graphic file (type png)
+<use fig/smr_race.png>
+Package pdftex.def Info: fig/smr_race.png  used on input line 257.
+(pdftex.def)             Requested size: 329.26598pt x 203.40115pt.
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 229.
+Package pdftex.def Info: crest_title.png  used on input line 257.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 229--229
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 257--257
 [][]  
  []
 
 [20
 
-]
+ <./fig/smr_race.png>]
+<fig/smr_temporal.png, id=607, 2195.20125pt x 1356.06625pt>
+File: fig/smr_temporal.png Graphic file (type png)
+<use fig/smr_temporal.png>
+Package pdftex.def Info: fig/smr_temporal.png  used on input line 263.
+(pdftex.def)             Requested size: 329.26598pt x 203.40115pt.
 File: crest_title.png Graphic file (type png)
 <use crest_title.png>
-Package pdftex.def Info: crest_title.png  used on input line 238.
+Package pdftex.def Info: crest_title.png  used on input line 263.
 (pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
 
-Overfull \hbox (18.29846pt too wide) in paragraph at lines 238--238
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 263--263
 [][]  
  []
 
 [21
 
+ <./fig/smr_temporal.png>]
+<fig/smr_daynnite.png, id=634, 2195.20125pt x 1356.06625pt>
+File: fig/smr_daynnite.png Graphic file (type png)
+<use fig/smr_daynnite.png>
+Package pdftex.def Info: fig/smr_daynnite.png  used on input line 269.
+(pdftex.def)             Requested size: 329.26598pt x 203.40115pt.
+File: crest_title.png Graphic file (type png)
+<use crest_title.png>
+Package pdftex.def Info: crest_title.png  used on input line 269.
+(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
+
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 269--269
+[][]  
+ []
+
+[22
+
+ <./fig/smr_daynnite.png>]
+LaTeX Font Info:    Font shape `OT1/lmss/m/it' in size <10.95> not available
+(Font)              Font shape `OT1/lmss/m/sl' tried instead on input line 278.
+
+File: crest_title.png Graphic file (type png)
+<use crest_title.png>
+Package pdftex.def Info: crest_title.png  used on input line 278.
+(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
+
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 278--278
+[][]  
+ []
+
+[23
+
+] [24
+
 ]
+<fig/nc_age.png, id=709, 2107.875pt x 1505.625pt>
+File: fig/nc_age.png Graphic file (type png)
+<use fig/nc_age.png>
+Package pdftex.def Info: fig/nc_age.png  used on input line 290.
+(pdftex.def)             Requested size: 210.79985pt x 150.57132pt.
+File: crest_title.png Graphic file (type png)
+<use crest_title.png>
+Package pdftex.def Info: crest_title.png  used on input line 290.
+(pdftex.def)             Requested size: 35.21815pt x 14.4552pt.
+
+Overfull \hbox (18.29846pt too wide) in paragraph at lines 290--290
+[][]  
+ []
+
+[25
+
+ <./fig/nc_age.png>]
 \tf@nav=\write6
 \openout6 = `11_05.nav'.
 
@@ -1581,31 +1668,25 @@ Overfull \hbox (18.29846pt too wide) in paragraph at lines 238--238
 \tf@snm=\write8
 \openout8 = `11_05.snm'.
 
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 257.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 257.
- (./11_05.aux
-*************************************************
-* pdfbase warning: "rerun"
-* 
-* Rerun to get internal references right!
-*************************************************
-)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 257.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 257.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 310.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 310.
+ (./11_05.aux)
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 310.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 310.
 Package rerunfilecheck Info: File `11_05.out' has not changed.
 (rerunfilecheck)             Checksum: 67F42F7BE031601F389341F2C8DEB599;144.
  ) 
 Here is how much of TeX's memory you used:
- 30603 strings out of 492649
- 604847 string characters out of 6129622
- 680943 words of memory out of 5000000
- 33836 multiletter control sequences out of 15000+600000
+ 30684 strings out of 492649
+ 606562 string characters out of 6129622
+ 685314 words of memory out of 5000000
+ 33903 multiletter control sequences out of 15000+600000
  575248 words of font info for 70 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  60i,19n,74p,10435b,959s stack positions out of 5000i,500n,10000p,200000b,80000s
-{/usr/local/texlive/2018/texmf-dist/fonts/enc/dvips/lm/lm-rmtt.enc}{/usr/loca
-l/texlive/2018/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/usr/local/texlive/
-2018/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr/local/texlive/2018/texmf-dis
+{/usr/local/texlive/2018/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr/local/
+texlive/2018/texmf-dist/fonts/enc/dvips/lm/lm-rmtt.enc}{/usr/local/texlive/2018
+/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/usr/local/texlive/2018/texmf-dis
 t/fonts/enc/dvips/lm/lm-mathex.enc} </Users/amba/Library/texlive/2018/texmf-var
 /fonts/pk/ljfour/public/bbm/bbm10.657pk>{/usr/local/texlive/2018/texmf-dist/fon
 ts/enc/dvips/lm/lm-mathit.enc}</usr/local/texlive/2018/texmf-dist/fonts/type1/p
@@ -1624,10 +1705,10 @@ exlive/2018/texmf-dist/fonts/type1/public/lm/lmsy6.pfb></usr/local/texlive/2018
 /fonts/type1/public/lm/lmtt10.pfb></usr/local/texlive/2018/texmf-dist/fonts/typ
 e1/public/lm/lmtt12.pfb></usr/local/texlive/2018/texmf-dist/fonts/type1/public/
 lm/lmtt8.pfb>
-Output written on 11_05.pdf (21 pages, 894979 bytes).
+Output written on 11_05.pdf (25 pages, 1809857 bytes).
 PDF statistics:
- 626 PDF objects out of 1000 (max. 8388607)
- 542 compressed objects within 6 object streams
- 46 named destinations out of 1000 (max. 500000)
- 129 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 815 PDF objects out of 1000 (max. 8388607)
+ 705 compressed objects within 8 object streams
+ 54 named destinations out of 1000 (max. 500000)
+ 182 words of extra memory for PDF output out of 10000 (max. 10000000)
 
