@@ -10,13 +10,13 @@ Logistic regression is the most common model applied to traffic stop data, but i
 
 I defined a simple metric, the stop missingness rate (SMR) as the percentage of missing values in one row of the data. The SMR can be calculated on the dataset level to assess the amount of missing values. But a more interesting application is to restrict the SMR by a variable, such as race or time, and see how the rate of missingness changes across values of race or time of the day.
 
-A summary of my independent project can be viewed in this presentation (https://github.com/Amber-Patricia-Lee/US-Traffic-Stops/blob/master/2021%20presentation/11_05.pdf). 
+A summary of my independent project can be viewed in [this presentation](https://github.com/Amber-Patricia-Lee/US-Traffic-Stops/blob/master/2021%20presentation/11_05.pdf), but here are the two main takeaways.
 
 ##### Missingness across race are similar.
 
 <img src="https://github.com/Amber-Patricia-Lee/US-Traffic-Stops/blob/master/missingness%20final/viz%20for%20eusr%20presentation/fig/SMR_by_race.png" alt="Stop missingness rate by race" width="600"/>
 
-The distribution of SMR for motorist race appears to be about the same. The only difference is that when the motorist race itself is missing, then the SMR is much higher.
+The distribution of SMR for motorist race appears to be about the same. The only difference is that when the motorist race itself is missing, then the SMR is much higher. So it appears that the amount of data recorded for Black and white drivers is about the same. 
 
 ##### Missingness across time is different.
 
